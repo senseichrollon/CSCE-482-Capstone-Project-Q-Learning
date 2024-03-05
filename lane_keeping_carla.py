@@ -108,17 +108,17 @@ Defining the environment class
 class environment:
     def __init__(
             self,
-   #         trace_paths,
-            trace_config,
+            carla_client,
             car_config,
             sensor_config,
             reward_function
     ):
-        self.world = world
+        self.carla_client = carla_client
+        self.world = self.carla_client.get_world()
       #  self.agent = self.world.spawn_agent(car_config) # vista spawn car
+        spawn_point = carla.Transform(carla.Location(x=1033, y=200, z=0), carla.Rotation(yaw=0))
         vehicle_blueprint = world.get_blueprint_library().find('vehicle.tesla.model3')
-        spawn_point = carla.Transform(carla.Location(x=10, y=20, z=0), carla.Rotation(yaw=0))
-        self.agent = self.world.spawn_actor(vehicle_blueprint, spawn_point)
+        vehicle = world.spawn_actor(vehicle_blueprint, spawn_point)
         self.agent.spawn_camera(sensor_config)
         self.rf = reward_function
 
@@ -135,7 +135,6 @@ class environment:
         curvature_grid, speed_grid = np.meshgrid(curvature_range, speed_range)
 
         self.action_space = np.stack([curvature_grid.ravel(), speed_grid.ravel()], axis=1)
-
     
     def reset(self):
         self.world.reset()
@@ -384,7 +383,7 @@ if __name__ == '__main__':
         'size': (200, 320),
     }
 
-    env = environment( trace_config, car_config, sensor_config, args.reward_function)
+    env = environment( client, car_config, sensor_config, args.reward_function)
     display = vista.Display(env.world)
 
 
