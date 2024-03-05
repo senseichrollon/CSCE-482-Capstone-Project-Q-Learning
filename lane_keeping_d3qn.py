@@ -15,17 +15,9 @@ import random
 import cv2
 import math
 import json
-
 """
 Creating the D3QN class that splits into two streams: advantage and value
 """
-
-
-
-
-
-
-
 class DuelingDDQN(nn.Module):
     def __init__(self, action_dim):
         super(DuelingDDQN, self).__init__()
@@ -347,7 +339,7 @@ if __name__ == '__main__':
             best_dict = target_nn.state_dict()
             best_dict_reward = total_reward
 
-        print(f'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
+        print(;'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
 
         # Update epsilon
         epsilon = max(epsilon_end, epsilon_decay * epsilon)

@@ -1,8 +1,8 @@
-name: 642project
+name: 682project
 channels:
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=main
+  - _libgcc_mutex
   - _openmp_mutex=5.1=1_gnu
   - ca-certificates=2023.08.22=h06a4308_0
   - ld_impl_linux-64=2.38=h1181459_1

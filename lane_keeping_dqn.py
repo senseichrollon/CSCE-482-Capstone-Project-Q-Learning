@@ -334,7 +334,7 @@ if __name__ == '__main__':
 
     env = environment(args.trace_path, trace_config, car_config, sensor_config)
     display = vista.Display(env.world)
-
+    
     if args.operation[0].lower() == 'new':
 
         """
