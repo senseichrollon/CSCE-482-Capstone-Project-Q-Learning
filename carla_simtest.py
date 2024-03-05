@@ -1,5 +1,5 @@
 import carla
-import keyboard #py -3.8 -m pip install keyboard
+import keyboard 
 
 # Connect to the CARLA simulator
 client = carla.Client('localhost', 2000)
@@ -7,6 +7,13 @@ client.set_timeout(5.0)  # Set a timeout in seconds for client connection
 
 # Get the world object
 world = client.get_world()
+actors = world.get_actors()
+vehicle_ids = [actor.id for actor in actors if 'vehicle' in  actor.type_id]
+#vehicle = world.get_actor('vehicle')
+
+for vehicleid in vehicle_ids:
+    vehicle = world.get_actor(vehicleid)
+    vehicle.destroy()
 
 # Access world attributes or methods
 print("Number of vehicles:", len(world.get_actors().filter('vehicle')))
@@ -24,8 +31,8 @@ def update_vehicle_control():
         control.throttle = 1.0
     if keyboard.is_pressed('a'):
         control.steer = 1.0
-    if keyboard.is_pressed('s'):
-        control.brake = 1.0
+    #if keyboard.steer('s'):
+    #    control.brake = 1.0
     if keyboard.is_pressed('d'):
         control.steer = 1.0
     vehicle.apply_control(control)
@@ -33,3 +40,4 @@ def update_vehicle_control():
 while True:
     update_vehicle_control()
         
+
