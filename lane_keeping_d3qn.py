@@ -19,6 +19,13 @@ import json
 """
 Creating the D3QN class that splits into two streams: advantage and value
 """
+
+
+
+
+
+
+
 class DuelingDDQN(nn.Module):
     def __init__(self, action_dim):
         super(DuelingDDQN, self).__init__()
@@ -86,200 +93,100 @@ optimizer = torch.optim.Adam(behavior_nn.parameters(), lr=1e-5)
 loss_fn = nn.SmoothL1Loss() # huber loss
 
 
-"""
-Defining the environment class
-"""
-class environment:
-    def __init__(
-            self,
-            carla_client,
-            car_config,
-            sensor_config,
-            reward_function
-    ):
-        self.world = vista.World(trace_paths, trace_config)
-        self.agent = self.world.spawn_agent(car_config)
-        self.agent.spawn_camera(sensor_config)
+
+class enivornment:
+    def __init__(self, carla_client, car_config, sensor_config, reward_function):
+        self.client = carla_client
+        self.world = self.client.get_world()
+        self.car_config = car_config
+        self.sensor_config = sensor_config
         self.rf = reward_function
 
+        self.blueprint_library = self.world.get_blueprint_library()
+        self.vehicle_bp = self.blueprint_library.filter(car_config['model'])[0]
+        self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
+        self.camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
+        self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))
+        self.camera_bp.set_attribute('fov', str(sensor_config['fov']))
+
         self.distance = 0
         self.prev_xy = np.zeros((2, ))
 
-        # creating an action space where curvature ranges from -0.2 to 0.2 and speed ranges from 0 to 15
-        curvature_increment = 0.01
-        speed_increment = 0.1
+        # Action space is now defined in terms of throttle and steer instead of curvature and speed.
+        throttle_range = np.linspace(0, 1, 10)
+        steer_range = np.linspace(-1, 1, 10)
+        self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
 
-        curvature_range = np.arange(-0.2, 0.2+curvature_increment, curvature_increment)
-        speed_range = np.arange(0, 15+speed_increment, speed_increment)
-
-        curvature_grid, speed_grid = np.meshgrid(curvature_range, speed_range)
-
-        self.action_space = np.stack([curvature_grid.ravel(), speed_grid.ravel()], axis=1)
-
-    
     def reset(self):
-        self.world.reset()
-        self.agent = self.world.agents[0]
-        observations = self.agent.observations
+        # Spawn or respawn the vehicle at a random location
+        if hasattr(self, 'vehicle'):
+            self.vehicle.destroy()
+        spawn_points = self.world.get_map().get_spawn_points()
+        spawn_point = random.choice(spawn_points)
+        self.vehicle = self.world.spawn_actor(self.vehicle_bp, spawn_point)
+
+        # Attach the camera sensor
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
+        self.camera.listen(lambda data: self.process_image(data))
+
         self.distance = 0
-        self.prev_xy = np.zeros((2, ))
-        return observations
-    
-    def reward_1(self):
-        """
-        Discrete reward function:
-        - penalize the agent heavily for getting out of lane
-        - penalize for exceeding max rotation
-        - penalize for not being centered on the road
-        """
+        self.prev_xy = np.array([self.vehicle.get_location().x, self.vehicle.get_location().y])
 
-        # Defining conditions for reward function
-        road_half_width = self.agent.trace.road_width / 2.
-        out_of_lane = np.abs(self.agent.relative_state.x) > road_half_width
+        # Start collecting data
+        self.image = None
+        while self.image is None:
+            self.world.tick()
 
-        not_near_center = np.abs(self.agent.relative_state.x) > road_half_width / 4
+        return self.image
 
-        maximal_rotation = np.pi / 10
-        exceed_max_rotation = np.abs(self.agent.steering) > maximal_rotation
+    def process_image(self, image):
+        i = np.array(image.raw_data)
+        i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
+        self.image = i2[:, :, :3]
 
-        done = self.agent.done or out_of_lane 
+    def step(self, action):
+        throttle, steer = action
+        self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
 
-        current_xy = self.agent.ego_dynamics.numpy()[:2]
+        self.world.tick()
+
+        # Compute the distance traveled since the last step
+        current_location = self.vehicle.get_location()
+        current_xy = np.array([current_location.x, current_location.y])
         dd = np.linalg.norm(current_xy - self.prev_xy)
-
-        # Compute reward
-        reward = 0 if not self.agent.done else 300
-        if out_of_lane:
-            reward = -100
-        elif exceed_max_rotation:
-            reward = -0.5
-        else:
-            reward = dd * 50
-        
-        if not_near_center:
-            reward -= 0.5
-        else:
-            reward += 2# Compute reward
-        # reward = -1 if done else 0
-
-        reward = 0
-        if out_of_lane and exceed_max_rotation:
-            reward = -1
-        elif out_of_lane:
-            reward = -0.75
-        elif exceed_max_rotation:
-            reward = -0.5
-
-        return reward, done
-    
-    def reward_2(self):
-        """
-        Reward function that does not account for max rotation exceeded
-        """
-        road_half_width = self.agent.trace.road_width / 2.
-        out_of_lane = np.abs(self.agent.relative_state.x) > road_half_width
-
-        not_near_center = np.abs(self.agent.relative_state.x) > road_half_width / 4
-
-        maximal_rotation = np.pi / 10
-        exceed_max_rotation = np.abs(self.agent.steering) > maximal_rotation
-
-        done = self.agent.done or out_of_lane 
-
-        current_xy = self.agent.ego_dynamics.numpy()[:2]
-        dd = np.linalg.norm(current_xy - self.prev_xy)
-
-        # Compute reward
-        reward = 0 if not self.agent.done else 300
-        if out_of_lane:
-            reward = -100
-        else:
-            reward = dd * 5
-        
-        if not_near_center:
-            reward -= 0.5
-        else:
-            reward += 2# Compute reward
-        # reward = -1 if done else 0
-
-        return reward, done
-    
-    def reward_3(self):
-        """
-        Continous reward function:
-        r = c1*cos(theta) - c2*abs(P_y / W_d) - c3 * I_fail
-        - c1,c2,c3 are coefficients with values 1,1,2 respectively
-        - theta is the angle between road direction and vehicle
-        - P_y is is the lateral position error between the road center and the gravity center of the vehicle
-        - W_d is the lane width
-        - I_fail = 1 if agent is out of lane and 0 otherwise
-        First term is used to encourage staying along the road, second term is to encourage being centered,
-        third term is to heavily penalize going off road
-        """
-
-        # angle between road tangent and vehicle
-        agent_yaw = self.agent.ego_dynamics.yaw
-        road_dir = self.agent.human_dynamics.yaw
-        theta = abs(agent_yaw - road_dir)
-
-        # Normalize theta to [-pi, pi]
-        theta = (theta + np.pi) % (2 * np.pi) - np.pi
-
-        p_y = self.agent.relative_state.y
-        W_d = self.agent.trace.road_width / 2.
-        
-        # i_fail is 1 if out of lane, else 0
-        i_fail = 1 if np.abs(self.agent.relative_state.x) > W_d else 0
-
-        # Reward calculation
-        reward = math.cos(theta) - abs(p_y / W_d) - (2 * i_fail)
-
-        return reward, self.agent.done
-
-
-    
-    def step(self, action, dt = 1/30):
-        self.agent.step_dynamics(action, dt=dt)
-        self.agent.step_sensors()
-        next_state = self.agent.observations
-        
-        # get other info
-        info = misc.fetch_agent_info(self.agent)
-        
-        # Update car ego info
-        current_xy = self.agent.ego_dynamics.numpy()[:2]
-        self.distance += np.linalg.norm(current_xy - self.prev_xy)
+        self.distance += dd
         self.prev_xy = current_xy
-        info['distance'] = self.distance
 
-         # Calculate lateral distance from road center
-        lateral_distance = np.abs(self.agent.relative_state.x)
-        road_half_width = self.agent.trace.road_width / 2.
-        
-        # Set a threshold for being too far off the road
-        max_allowed_distance = road_half_width * 3  # Example threshold
+        # Calculate reward based on the chosen reward function
+        if self.rf == 1:
+            reward, done = self.reward_1()
+        elif self.rf == 2:
+            reward, done = self.reward_2()
+        else:
+            reward, done = self.reward_3()
 
-        # Check if the agent is too far off the road
-        too_far_off_road = lateral_distance > max_allowed_distance
-        done = self.agent.done or too_far_off_road
+        info = {}  # Additional info can be added here
 
-        # reward, _ = self.reward_1() if self.rf == 1 else self.reward_2()
-        reward, _ = self.reward_3()
+        return self.image, reward, done, info
 
-        return next_state, reward, done, info
-    
+    def reward_1(self):
+        # Implement reward function logic specific to CARLA
+        # This function should calculate the reward and determine if the episode is done
+        return reward, done
+
+    def reward_2(self):
+        # Implement alternative reward function logic
+        return reward, done
+
+    def reward_3(self):
+        # Implement continuous reward function logic
+        return reward, done
 
     def epsilon_greedy_action(self, state, epsilon):
-        # Restructuring the states to match the input of the conv layers
-        state = state.permute(0, 3, 1, 2)
-        prob = np.random.uniform()
-        if prob < epsilon:
-            action_idx = np.random.randint(len(self.action_space))
-            return action_idx
-        else:
-            qs = behavior_nn.forward(state).cpu().data.numpy()
-            action_idx = np.argmax(qs)
-            return action_idx
+        # Implement epsilon greedy action selection
+        return action_idx
+
 
 """
 Replay buffer class
