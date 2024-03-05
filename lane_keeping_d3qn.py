@@ -1,6 +1,8 @@
 import argparse
 from collections import deque, namedtuple
 from matplotlib import pyplot as plt
+import carla
+import pygame
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,8 +92,7 @@ Defining the environment class
 class environment:
     def __init__(
             self,
-            trace_paths,
-            trace_config,
+            carla_client,
             car_config,
             sensor_config,
             reward_function
