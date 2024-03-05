@@ -166,25 +166,20 @@ class enivornment:
         else:
             reward, done = self.reward_3()
 
-        info = {}  # Additional info can be added here
+        info = {}  
 
         return self.image, reward, done, info
 
     def reward_1(self):
-        # Implement reward function logic specific to CARLA
-        # This function should calculate the reward and determine if the episode is done
         return reward, done
 
     def reward_2(self):
-        # Implement alternative reward function logic
         return reward, done
 
     def reward_3(self):
-        # Implement continuous reward function logic
         return reward, done
 
     def epsilon_greedy_action(self, state, epsilon):
-        # Implement epsilon greedy action selection
         return action_idx
 
 
