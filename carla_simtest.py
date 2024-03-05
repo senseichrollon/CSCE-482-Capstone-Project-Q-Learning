@@ -1,5 +1,5 @@
 import carla
-import keyboard 
+import keyboard #py -3.8 -m pip install keyboard
 
 # Connect to the CARLA simulator
 client = carla.Client('localhost', 2000)
@@ -24,7 +24,7 @@ def update_vehicle_control():
         control.throttle = 1.0
     if keyboard.is_pressed('a'):
         control.steer = 1.0
-    if keyboard.steer('s'):
+    if keyboard.is_pressed('s'):
         control.brake = 1.0
     if keyboard.is_pressed('d'):
         control.steer = 1.0
