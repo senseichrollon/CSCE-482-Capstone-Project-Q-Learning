@@ -3,7 +3,68 @@ from collections import deque, namedtuple
 import random
 import numpy as np
 import carla
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
+
+
+"""
+Creating the D3QN class that splits into two streams: advantage and value
+"""
+class DuelingDDQN(nn.Module):
+    def __init__(self, action_dim):
+        super(DuelingDDQN, self).__init__()
+        # Convolutional and pooling layers
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # Flatten the output of the final convolutional layer
+        self.flatten_size = self._get_conv_output((3, 200, 320))
+
+        # Fully connected layers
+        self.fc1 = nn.Linear(self.flatten_size, 512)
+
+        # State Value stream
+        self.value_stream = nn.Linear(512, 1)
+
+        # Advantage stream
+        self.advantage_stream = nn.Linear(512, action_dim)
+
+    def _get_conv_output(self, shape):
+        with torch.no_grad():
+            input = torch.zeros(1, *shape)
+            output = self.conv1(input)
+            output = self.pool1(output)
+            output = self.conv2(output)
+            output = self.pool2(output)
+            output = self.conv3(output)
+            output = self.pool3(output)
+            return int(np.prod(output.size()))
+
+    def forward(self, state):
+        # Convert state to float and scale if necessary
+        state = state.float() / 255.0  # Scale images to [0, 1]
+
+        x = F.relu(self.pool1(self.conv1(state)))
+        x = F.relu(self.pool2(self.conv2(x)))
+        x = F.relu(self.pool3(self.conv3(x)))
+
+        # Flatten and pass through fully connected layer
+        x = x.reshape(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+
+        # Value and advantage streams
+        value = self.value_stream(x)
+        advantage = self.advantage_stream(x)
+
+        # Combine to get Q-values
+        q_values = value + advantage - advantage.mean(dim=1, keepdim=True)
+        return q_values
 
 """
 Replay buffer class
