@@ -113,6 +113,7 @@ class environment:
             sensor_config,
             reward_function
     ):
+        self.reset() # get rid of spawned objects
         self.carla_client = carla_client
         self.world = self.carla_client.get_world()
       #  self.agent = self.world.spawn_agent(car_config) # vista spawn car
