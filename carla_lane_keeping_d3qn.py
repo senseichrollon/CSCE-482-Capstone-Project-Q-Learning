@@ -3,17 +3,86 @@ from collections import deque, namedtuple
 import random
 import numpy as np
 import carla
-
+from copy import deepcopy
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import math
 
 """
 Replay buffer class
 """
+NUM_ACTIONS = 6191
 
 
 # Carla Client attribute
 client = carla.Client('localhost', 2000)
 client.set_timeout(5.0)  # Set a timeout in seconds for client connection
 print("Client established") 
+
+
+
+class DuelingDDQN(nn.Module):
+    def __init__(self, action_dim):
+        super(DuelingDDQN, self).__init__()
+        # Convolutional and pooling layers
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # Flatten the output of the final convolutional layer
+        self.flatten_size = self._get_conv_output((3, 200, 320))
+
+        # Fully connected layers
+        self.fc1 = nn.Linear(self.flatten_size, 512)
+
+        # State Value stream
+        self.value_stream = nn.Linear(512, 1)
+
+        # Advantage stream
+        self.advantage_stream = nn.Linear(512, action_dim)
+
+    def _get_conv_output(self, shape):
+        with torch.no_grad():
+            input = torch.zeros(1, *shape)
+            output = self.conv1(input)
+            output = self.pool1(output)
+            output = self.conv2(output)
+            output = self.pool2(output)
+            output = self.conv3(output)
+            output = self.pool3(output)
+            return int(np.prod(output.size()))
+
+    def forward(self, state):
+        # Convert state to float and scale if necessary
+        state = state.float() / 255.0  # Scale images to [0, 1]
+
+        x = F.relu(self.pool1(self.conv1(state)))
+        x = F.relu(self.pool2(self.conv2(x)))
+        x = F.relu(self.pool3(self.conv3(x)))
+
+        # Flatten and pass through fully connected layer
+        x = x.reshape(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+
+        # Value and advantage streams
+        value = self.value_stream(x)
+        advantage = self.advantage_stream(x)
+
+        # Combine to get Q-values
+        q_values = value + advantage - advantage.mean(dim=1, keepdim=True)
+        return q_values
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+network = DuelingDDQN(NUM_ACTIONS).to(device)
+target_network = deepcopy(network)
+
+optimizer = torch.optim.Adam(network.parameters(), lr=1e-5)
+loss_fn = nn.SmoothL1Loss() # huber loss
 
 
 class ReplayBuffer:
@@ -147,20 +216,163 @@ class Environment:
         return reward, done
 
     def reward_3(self):
-
         reward=0
-        done=True
+        done=False
+        theta = self.calculate_angle_between_vectors(self.get_vehicle_direction(), self.get_road_direction())
+        Py, Wd = self.get_lateral_position_error_and_lane_width()
+        i_fail = 1 if self.is_vehicle_within_lane() else 0
+        reward =  reward = math.cos(theta) - abs(Py / Wd) - (2 * i_fail)
         return reward, done
+    
+    def get_vehicle_direction(self):
+        transform = self.vehicle.get_transform()
+        rotation = transform.rotation
+        radians = math.radians(rotation.yaw)
+        return carla.Vector3D(math.cos(radians), math.sin(radians), 0.0)
+    
+    def get_road_direction(self):
+        # This is a simplified example. You'll need to adapt it based on how your road data is structured
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(self.vehicle.get_location())
+        next_waypoint = waypoint.next(1.0)[0]  # Assuming there's a next waypoint
+        direction = next_waypoint.transform.location - waypoint.transform.location
+        return direction.make_unit_vector()
+    
+    def calculate_angle_between_vectors(self, v1, v2):
+        dot_product = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
+        angle = math.acos(dot_product)  # Angle in radians
+        return math.degrees(angle)
+    
+    def get_lateral_position_error_and_lane_width(self):
+        # Get the vehicle's location
+        vehicle_location = self.vehicle.get_location()
+        map = self.world.get_map()
+        
+        # Get the closest waypoint to the vehicle's location
+        closest_waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        
+        # Calculate the lateral position error
+        # This is a simple approximation. For more accuracy, consider the direction of the road
+        lateral_position_error = vehicle_location.distance(closest_waypoint.transform.location) - closest_waypoint.lane_width / 2
+        
+        # Get the lane width
+        lane_width = closest_waypoint.lane_width
+        
+        return lateral_position_error, lane_width
+    
+    def is_vehicle_within_lane(self):
+        # Get the vehicle's location
+        map = self.world.get_map()
+        vehicle_location = self.vehicle.get_location()
+        
+        # Get the closest waypoint to the vehicle's location, considering only driving lanes
+        closest_waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        
+        # Get the transform of the closest waypoint
+        waypoint_transform = closest_waypoint.transform
+        
+        # Calculate the vector from the waypoint to the vehicle
+        vehicle_vector = vehicle_location - waypoint_transform.location
+        vehicle_vector = carla.Vector3D(vehicle_vector.x, vehicle_vector.y, 0)  # Ignore Z component
+        
+        # Calculate the forward vector of the waypoint (direction the lane is facing)
+        waypoint_forward_vector = waypoint_transform.get_forward_vector()
+        waypoint_forward_vector = carla.Vector3D(waypoint_forward_vector.x, waypoint_forward_vector.y, 0)  # Ignore Z component
+        
+        # Calculate the right vector of the waypoint (perpendicular to the forward vector)
+        waypoint_right_vector = carla.Vector3D(-waypoint_forward_vector.y, waypoint_forward_vector.x, 0)
+        
+        # Project the vehicle vector onto the waypoint right vector to get the lateral distance from the lane center
+        lateral_distance = vehicle_vector.dot(waypoint_right_vector)
+        
+        # Check if the absolute value of lateral_distance is less than or equal to half the lane width
+        is_within_lane = abs(lateral_distance) <= (closest_waypoint.lane_width / 2)
+        
+        return is_within_lane
 
     def epsilon_greedy_action(self, state, epsilon):
     
-        action_idx=0
+        # print(f"\tstate.shape = {state.shape}")
+        prob = np.random.uniform()
+
+        if prob < epsilon:
+            self.action_idx = np.random.randint(len(self.action_space))
+            return self.action_space[self.action_idx]
+        else:
+            qs = network.forward(state).cpu().data.numpy()
+            self.action_idx = np.argmax(qs)
+            return self.action_space[self.action_idx]
 
 
-        return action_idx
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
 
+def optimize_model(memory, batch_size, gamma):
+    # print("__FUNCTION__optimize_model()")
+    if memory.size() < batch_size:
+        return
+    
+    transitions = memory.sample(batch_size)
+    batch = Transition(*zip(*transitions))
 
+    # convert to tensors and move to device
+    state_batch = torch.cat([s for s in batch.state]).to(device)
+    # action_batch = torch.cat([a for a in batch.action]).to(device)
+    action_batch = torch.cat([torch.tensor([a]).to(device) for a in batch.action])
+    reward_batch = torch.cat([torch.tensor([r]).to(device) for r in batch.reward])
+    next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(device)
+    done_batch = torch.cat([torch.tensor([d]).to(device) for d in batch.done])
+    # non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool).to(device)
+    
+    # print(f"\tstate_batch.shape = {state_batch.shape}")
+    state_batch = state_batch.permute(0, 3, 1, 2)
+    next_state_batch = next_state_batch.permute(0, 3, 1, 2)
+    # print(f"\tstate_batch.shape = {state_batch.shape}")
+    # print(f"\taction_batch.shape = {action_batch.shape}")
+    # print(f"\treward_batch.shape = {reward_batch.shape}")
+    # print(f"\tnext_state_batch.shape = {next_state_batch.shape}")
+    # print(f"\tdone_batch.shape = {done_batch.shape}")
+    # Compute Q
+    current_q = network(state_batch)
+    # print("  __FUNCTION__optimize_model()")
+    # print(f"\tcurrent_q.shape = {current_q.shape}")
+    # print(f"\taction_batch.unsqueeze(1).shape = {action_batch.unsqueeze(1).shape}")
+    # print(f"\taction_batch.unsqueeze(1).long().shape = {action_batch.unsqueeze(1).long().shape}")
+    current_q = torch.gather(current_q, dim=1, index=action_batch.unsqueeze(1).long()).squeeze(-1)
+    # print(f"\tcurrent_q.shape = {current_q.shape}")
+    # print(f"\tcurrent_q = {current_q}")
 
+    # print(f"\tlen(next_state_batch) = {len(next_state_batch)}")
+
+    with torch.no_grad():
+        # compute target Q
+        target_q = torch.full([len(next_state_batch)], 0, dtype=torch.float32)
+        # target_q = torch.zeros(batch_size, NUM_ACTIONS, dtype=torch.float32)
+
+        for idx in range(len(next_state_batch)):
+            reward = reward_batch[idx]
+            next_state = next_state_batch[idx].unsqueeze(0)
+            done = done_batch[idx]
+            if (done):
+                target_q[idx] = reward
+                # print(f"\t\t\treward = {reward}")
+            else:
+                # print(f"\tstate_batch.shape = {state_batch.shape}")
+                # print(f"\t\t\tnext_state.shape = {next_state.shape}")
+                q_values = target_network(next_state)
+                # print(f"\t\t\tt_q_values.shape = {q_values.shape}")
+                max_q = q_values[0][torch.argmax(q_values)]
+                target = reward + gamma * max_q
+                target_q[idx] = target
+
+    # print(f"\ttarget_q.shape = {target_q.shape}")
+
+    # Compute Huber loss
+    loss_q = loss_fn(current_q, target_q)
+
+    # Optimize the model
+    optimizer.zero_grad()
+    loss_q.backward()
+    optimizer.step()
 
 if __name__ == '__main__':
 
@@ -213,7 +425,109 @@ if __name__ == '__main__':
     if args.map: #specifed map is chosen
         map = args.map[0]
     env = Environment( client, car_config, sensor_config, args.reward_function, map)
-    while True:
-        #run
-        x=0
-        print("xsxs")
+    if args.operation[0].lower() == 'new':
+
+        """
+        Initializing hyper-parameters and beginning the training loop
+        """
+        replay_buffer = ReplayBuffer(10000)
+        batch_size = 32
+        gamma = 0.99 
+        epsilon_start = 1.0
+        epsilon_end = 0.01
+        epsilon_decay = 0.96
+        num_episodes = 200
+        target_update = 10  # Update target network every 10 episodes
+        max_num_steps = 700
+
+        best_dict_reward = -1e10
+
+        # per episode
+        rewards = np.array([])
+        num_steps = np.array([])
+
+        epsilon = epsilon_start
+        for episode in range(num_episodes):
+            state = env.reset()['camera_front']
+            # print(f"main, state.shape after reset = {state.shape}")
+            # print(state)
+       #     display.reset()
+            total_reward = 0
+            done = False
+            step = 0
+
+            while step < max_num_steps and not done:
+                # Convert state to the appropriate format and move to device
+                state_tensor = torch.from_numpy(state).unsqueeze(0).to(device)
+
+                # Select action using epsilon greedy policy
+                action = env.epsilon_greedy_action(state_tensor, epsilon)
+                next_state, reward, done, _ = env.step(action)
+                next_state = next_state['camera_front']
+
+                # Convert next_state to tensor and move to device
+                next_state_tensor = torch.from_numpy(next_state).unsqueeze(0).to(device) if next_state is not None else None
+
+                # Store the transition in the replay buffer
+                # action_tensor = torch.zeros(1, NUM_ACTIONS, dtype=torch.int64)
+                # print(f"action_tensor = {action_tensor}")
+                # print(f"action_tensor.shape = {action_tensor.shape}")
+                # print(f"action = {action}")
+                # print(f"action.shape = {action.shape}")
+                # print(f"env.action_idx = {env.action_idx}")
+                # action_tensor[0][env.action_idx] = 1
+
+                replay_buffer.store((state_tensor, env.action_idx, reward, next_state_tensor, done))
+
+                state = next_state
+                total_reward += reward
+
+                # vis_img = display.render()
+
+                # Optimize the model if the replay buffer has enough samples
+                optimize_model(replay_buffer, batch_size, gamma)
+
+                if step % target_update == 0 or done:
+                    target_network.load_state_dict(network.state_dict())
+
+                step += 1
+                # cv2.imshow(f'Car Agent in Episode {episode}', vis_img[:, :, ::-1])
+                # cv2.waitKey(5)
+            rewards = np.append(rewards, total_reward / step)
+            num_steps = np.append(num_steps, step)
+
+            if total_reward > best_dict_reward:
+                print("Saving new best")
+                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_best_dqn_network_nn_model.pth')
+                best_dict_reward = total_reward
+
+            print(f'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
+
+            # Update epsilon
+            epsilon = max(epsilon_end, epsilon_decay * epsilon)
+        
+        # Save the model's state dictionary
+        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_final_dqn_network_nn_model.pth')
+
+        eps = np.arange(0, num_episodes)
+        print(f"rewards = {rewards}")
+        print(f"num_steps = {num_steps}")
+     #   display.render()
+        plt.show()
+        # Create a line graph
+        plt.plot(eps, rewards)
+
+        # Add labels and a title
+        plt.xlabel('Training Episodes')
+        plt.ylabel('Average Reward per Episode')
+        plt.title('Average Reward')
+
+        # Display the plot
+        plt.show()
+
+        plt.plot(eps, num_steps)
+        plt.xlabel('Training Episodes')
+        plt.ylabel('Number of Steps per Episode')
+        plt.title('Steps per Episode')
+        # Display the plot
+        plt.show()
