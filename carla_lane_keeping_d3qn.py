@@ -14,7 +14,7 @@ import cv2
 """
 Replay buffer class
 """
-NUM_ACTIONS = 6191
+NUM_ACTIONS = 100
 
 
 # Carla Client attribute
@@ -75,7 +75,9 @@ class DuelingDDQN(nn.Module):
         advantage = self.advantage_stream(x)
 
         # Combine to get Q-values
+       
         q_values = value + advantage - advantage.mean(dim=1, keepdim=True)
+  #      print(f'Shapes of network, Value{value.shape}, advantage{advantage.shape}, q_values{q_values.shape}')
         return q_values
 
 
@@ -148,6 +150,7 @@ class Environment:
         throttle_range = np.linspace(0, 1, 10)
         steer_range = np.linspace(-1, 1, 10)
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
+        
         #self.camera.listen(lambda data: self.process_image(data))
 
     def reset(self):   # reset is to reset world?
@@ -324,8 +327,9 @@ class Environment:
     def epsilon_greedy_action(self, state, epsilon):
     
         # print(f"\tstate.shape = {state.shape}")
+        state = state.permute(0, 3, 1, 2)
         prob = np.random.uniform()
-
+        print(state.shape)
         if prob < epsilon:
             self.action_idx = np.random.randint(len(self.action_space))
             return self.action_space[self.action_idx]
@@ -472,7 +476,7 @@ if __name__ == '__main__':
         epsilon_decay = 0.96
         num_episodes = 200
         target_update = 10  # Update target network every 10 episodes
-        max_num_steps = 700
+        max_num_steps = 100
 
         best_dict_reward = -1e10
 
