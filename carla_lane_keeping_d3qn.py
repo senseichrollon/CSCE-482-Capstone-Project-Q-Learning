@@ -3,7 +3,7 @@ from collections import deque, namedtuple
 import random
 import numpy as np
 import carla
-from copy import deepcopy
+import timefrom copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -107,17 +107,16 @@ class Environment:
         # if loading specifc map
         if (map != 0):
             self.world= self.client.load_world(map)
-         #take out cars
+         #delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
-        for actor in actor_list:
-            if actor.type_id != 'sensor.camera.rgb':
-                actor.destroy()
-
+        vehicle_and_sensor_ids = [actor.id for actor in actor_list if (('vehicle' in  actor.type_id) or ('sensor' in actor.type_id))]
+        #sensor_ids= [actor.id for actor in actor_list if 'sensor' in  actor.type_id]
+        for id in vehicle_and_sensor_ids:
+            created_actor = self.world.get_actor(id)
+            created_actor.destroy()
         self.car_config = car_config
         self.sensor_config = sensor_config
         self.rf = reward_function
-        
-        
 
         self.blueprint_library = self.world.get_blueprint_library()
 
@@ -134,12 +133,16 @@ class Environment:
         self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))
         self.camera_bp.set_attribute('fov', str(sensor_config['fov']))
 
-
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         #available spawn points:
         spawn_points = self.world.get_map().get_spawn_points()
         self.spawn_point = random.choice(spawn_points)
         # adding vehicle to self
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
+        # spawned vehicle in simulator
+
+        self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
+
         self.distance = 0
         self.prev_xy = np.zeros((2, ))
 
@@ -147,6 +150,7 @@ class Environment:
         throttle_range = np.linspace(0, 1, 10)
         steer_range = np.linspace(-1, 1, 10)
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
+        #self.camera.listen(lambda data: self.process_image(data))
 
     def reset(self):   # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
@@ -157,7 +161,8 @@ class Environment:
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
 
         # Attach the camera sensor
-        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4)) #camera offset relative to cars origin, 
+        # changeable, depending where the camera actually is
         self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
         self.camera.listen(lambda data: self.process_image(data))
 
