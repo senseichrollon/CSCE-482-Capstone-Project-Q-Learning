@@ -1,106 +1,90 @@
-import argparse
-from collections import deque, namedtuple
+import carla
+import pygame
 import random
 import numpy as np
-import carla
-import time
-import keyboard 
-import cv2
 
-# Connect to the CARLA simulator
-client = carla.Client('localhost', 2000)
-client.set_timeout(5.0)  # Set a timeout in seconds for client connection
+def process_img(image):
+    """Process the image from the camera sensor and convert it to a format suitable for Pygame."""
+    i = np.array(image.raw_data)  # Convert the raw data to an array
+    i2 = i.reshape((image.height, image.width, 4))  # Reshape it to have the proper dimension
+    i3 = i2[:, :, :3]  # Drop the alpha channel
+    return i3.swapaxes(0, 1)  # Pygame uses width x height, so we need to swap the axes
 
-# Get the world object
-world = client.get_world()
-actors = world.get_actors()
-print(world.get_actors())
-vehicle_ids = [actor.id for actor in actors if 'vehicle' in  actor.type_id]
-#vehicle = world.get_actor('vehicle')
-print("Number of vehicles beforehand :", len(world.get_actors().filter('vehicle')))
-print("Number of pedestrians beforehand :", len(world.get_actors().filter('walker')))
+def image_callback(image, surface):
+    """Update Pygame surface with camera image."""
+    image.convert(carla.ColorConverter.Raw)
+    array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+    array = np.reshape(array, (image.height, image.width, 4))
+    array = array[:, :, :3]
+    array = array.swapaxes(0, 1)
+    surface = pygame.surfarray.make_surface(array)
+    screen.blit(surface, (0, 0))
 
+def main():
+    pygame.init()
+    display_width = 640
+    display_height = 480
+    global screen
+    screen = pygame.display.set_mode((display_width, display_height))
+    pygame.display.set_caption("CARLA Keyboard Control")
+    clock = pygame.time.Clock()
 
-#for vehicleid in vehicle_ids:
- #   vehicle = world.get_actor(vehicleid)
-  #  vehicle.destroy()
+    try:
+        client = carla.Client('localhost', 2000)
+        client.set_timeout(10.0)
 
-#for cameraa in world.get_actors().filter('sensor.camera.rgb'):
- #   cameraa.destroy()
+        world = client.get_world()
 
+        blueprint_library = world.get_blueprint_library()
+        car_model = blueprint_library.filter('model3')[0]
 
-vehicle_and_sensor_ids = [actor.id for actor in actors if (('vehicle' in  actor.type_id) or ('sensor' in actor.type_id))]
-        #sensor_ids= [actor.id for actor in actor_list if 'sensor' in  actor.type_id]
-for id in vehicle_and_sensor_ids:
-    created_actor = world.get_actor(id)
-    created_actor.destroy()
-# Access world attributes or methods
-print("Number of vehicles after destruction:", len(world.get_actors().filter('vehicle')))
-print("Number of pedestrians after:", len(world.get_actors().filter('walker')))
+        spawn_point = random.choice(world.get_map().get_spawn_points())
+        vehicle = world.spawn_actor(car_model, spawn_point)
 
-# Spawn a vehicle
+        # Attach a camera sensor to the vehicle
+        camera_bp = blueprint_library.find('sensor.camera.rgb')
+        camera_bp.set_attribute('image_size_x', f'{display_width}')
+        camera_bp.set_attribute('image_size_y', f'{display_height}')
+        camera_bp.set_attribute('fov', '110')
+        camera_transform = carla.Transform(carla.Location(x=5, z=1))
+        camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
 
-    
+        # Create a Pygame surface for camera images
+        camera_surface = pygame.surface.Surface((display_width, display_height))
 
-spawn_points = world.get_map().get_spawn_points()
-spawn_point = random.choice(spawn_points)
+        # Listen to camera images
+        camera.listen(lambda image: image_callback(image, camera_surface))
 
-#spawn_point = carla.Transform(carla.Location(x=10, y=200, z=0), carla.Rotation(yaw=0))
-vehicle_blueprint = world.get_blueprint_library().find('vehicle.tesla.model3')
-vehicle = world.spawn_actor(vehicle_blueprint, spawn_point)
-sensor_config = { #default sensor configuration
-        
-    'image_size_x': 800,  # Width of the image in pixels
-    'image_size_y': 600,  # Height of the image in pixels
-    'fov': 90,            # Field of view in degrees
-} 
-blueprint_library = world.get_blueprint_library()
-camera_bp = blueprint_library.find('sensor.camera.rgb')
-camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
-camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))
-camera_bp.set_attribute('fov', str(sensor_config['fov']))
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
-camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))  # Adjust position relative to vehicle
-camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-texture_bp = blueprint_library.find('sensor.camera.semantic_segmentation')
-texture_bp.set_attribute('image_size_x', '800')
-texture_bp.set_attribute('image_size_y', '600')
-texture = world.spawn_actor(texture_bp, carla.Transform(), attach_to=camera)
+            keys = pygame.key.get_pressed()
+            control = carla.VehicleControl()
 
-def process_image(image):
-    # Convert the image to an array
-    image_array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
-    image_array = np.reshape(image_array, (image.height, image.width, 4))
-    image_array = image_array[:, :, :3]  # Remove the alpha channel
-    
-    # Display the image using OpenCV
-    cv2.imshow("Camera View", image_array)
-    cv2.waitKey(1)  # Update the display
-    #texture.write(image_array.tobytes())
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                control.throttle = 1.0
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                control.brake = 1.0
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                control.steer = -0.5
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                control.steer = 0.5
+            if keys[pygame.K_SPACE]:
+                control.hand_brake = True
 
-camera.listen(process_image)
-print("Number of vehicles after creation:", len(world.get_actors().filter('vehicle')))
+            vehicle.apply_control(control)
 
-print("Number of actors after creation:", len(world.get_actors()))
-print(world.get_actors())
-# Function to update vehicle control based on keyboard input
-def update_vehicle_control():
-    control = carla.VehicleControl()
-    if keyboard.is_pressed('w'):
-        control.throttle = 1.0
-    if keyboard.is_pressed('a'): #goes right
-        control.steer = 1.0
-    #if keyboard.steer('s'):
-    #    control.brake = 1.0
-    if keyboard.is_pressed('d'):
-        control.steer = 1.0
-    if keyboard.is_pressed('s'):
-        control.throttle= -1.0
-    vehicle.apply_control(control)
+            pygame.display.flip()
+            clock.tick_busy_loop(60)
 
+    finally:
+        vehicle.destroy()
+        camera.destroy()
+        pygame.quit()
+        print('Simulation ended.')
 
-
-while True:
-    
-    update_vehicle_control()
-    world.tick()
+if __name__ == '__main__':
+    main()

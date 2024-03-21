@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import math
-
+import cv2
 """
 Replay buffer class
 """
@@ -24,7 +24,7 @@ print("Client established")
 
 
 class DuelingDDQN(nn.Module):
-    def __init__(self, action_dim):
+    def __init__(self, action_dim, image_dim=(480,640)):
         super(DuelingDDQN, self).__init__()
         # Convolutional and pooling layers
         self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
@@ -35,7 +35,7 @@ class DuelingDDQN(nn.Module):
         self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Flatten the output of the final convolutional layer
-        self.flatten_size = self._get_conv_output((3, 200, 320))
+        self.flatten_size = self._get_conv_output((3, image_dim[0], image_dim[1]))
 
         # Fully connected layers
         self.fc1 = nn.Linear(self.flatten_size, 512)
@@ -77,13 +77,13 @@ class DuelingDDQN(nn.Module):
         q_values = value + advantage - advantage.mean(dim=1, keepdim=True)
         return q_values
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 network = DuelingDDQN(NUM_ACTIONS).to(device)
 target_network = deepcopy(network)
 
 optimizer = torch.optim.Adam(network.parameters(), lr=1e-5)
 loss_fn = nn.SmoothL1Loss() # huber loss
-
 
 class ReplayBuffer:
     def __init__(self, capacity):
@@ -121,13 +121,13 @@ class Environment:
 
         self.blueprint_library = self.world.get_blueprint_library()
 
-        print(self.blueprint_library)
+      #  print(self.blueprint_library)
         self.vehicle_bps = [bp for bp in self.blueprint_library.filter('vehicle') if bp.has_attribute('number_of_wheels')]
 
 
-        print(self.vehicle_bps[0])
-        print(self.vehicle_bps[1])
-        print(self.vehicle_bps[2])
+       # print(self.vehicle_bps[0])
+       # print(self.vehicle_bps[1])
+      #  print(self.vehicle_bps[2])
         self.vehicle_bp = self.vehicle_bps[0]
         self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         self.camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
@@ -137,9 +137,9 @@ class Environment:
 
         #available spawn points:
         spawn_points = self.world.get_map().get_spawn_points()
-        spawn_point = random.choice(spawn_points)
+        self.spawn_point = random.choice(spawn_points)
         # adding vehicle to self
-        self.vehicle = self.world.spawn_actor(self.vehicle_bp, spawn_point)
+        self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
         self.distance = 0
         self.prev_xy = np.zeros((2, ))
 
@@ -153,8 +153,8 @@ class Environment:
         if hasattr(self, 'vehicle'):
             self.vehicle.destroy()
         spawn_points = self.world.get_map().get_spawn_points()
-        spawn_point = random.choice(spawn_points)
-        self.vehicle = self.world.spawn_actor(self.vehicle_bp, spawn_point)
+        self.spawn_point = random.choice(spawn_points)
+        self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
 
         # Attach the camera sensor
         camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
@@ -168,13 +168,15 @@ class Environment:
         self.image = None
         while self.image is None:
             self.world.tick()
-
         return self.image
 
     def process_image(self, image):
         i = np.array(image.raw_data)
         i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
         self.image = i2[:, :, :3]
+            # Display the image using OpenCV
+        cv2.imshow("Camera View", self.image)
+        cv2.waitKey(1)  # Update the display
 
     def step(self, action):
         throttle, steer = action
@@ -195,7 +197,10 @@ class Environment:
         elif self.rf == 2:
             reward, done = self.reward_2()
         else:
-            reward, done = self.reward_3()
+            reward = self.reward_3()
+            Py, Wd = self.get_lateral_position_error_and_lane_width()
+            print(f'road calc: {Py}, {Wd}')
+            done = Py > Wd*3
 
         info = {}  
 
@@ -219,10 +224,12 @@ class Environment:
         reward=0
         done=False
         theta = self.calculate_angle_between_vectors(self.get_vehicle_direction(), self.get_road_direction())
+        print(f'theta: {theta}')
         Py, Wd = self.get_lateral_position_error_and_lane_width()
         i_fail = 1 if self.is_vehicle_within_lane() else 0
+        print(f'ifail: {i_fail}')
         reward =  reward = math.cos(theta) - abs(Py / Wd) - (2 * i_fail)
-        return reward, done
+        return reward
     
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
@@ -240,8 +247,22 @@ class Environment:
     
     def calculate_angle_between_vectors(self, v1, v2):
         dot_product = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
-        angle = math.acos(dot_product)  # Angle in radians
-        return math.degrees(angle)
+        magnitude_v1 = math.sqrt(v1.x**2 + v1.y**2 + v1.z**2)  # Magnitude of v1
+        magnitude_v2 = math.sqrt(v2.x**2 + v2.y**2 + v2.z**2)  # Magnitude of v2
+        
+        # Ensure the magnitude is not zero to avoid division by zero error
+        if magnitude_v1 == 0 or magnitude_v2 == 0:
+            raise ValueError("One or both vectors have zero magnitude, can't calculate angle.")
+        
+        # Normalize the dot product by the magnitudes of v1 and v2
+        cosine_of_angle = dot_product / (magnitude_v1 * magnitude_v2)
+        
+        # Clamp the cosine_of_angle to the domain of acos to avoid domain errors
+        cosine_of_angle = max(min(cosine_of_angle, 1), -1)
+        
+        angle = math.acos(cosine_of_angle)  # Angle in radians
+        
+        return math.degrees(angle)  # Convert the angle to degrees
     
     def get_lateral_position_error_and_lane_width(self):
         # Get the vehicle's location
@@ -398,14 +419,14 @@ if __name__ == '__main__':
     parser.add_argument('--reward-function',
                         type=str,
                         nargs='+',
-                        help='1 or 2',
+                        help='1 or 2 or 3',
                         required=True)
     parser.add_argument('--map',
                         type=str,
                         nargs='+',
                         help='Specify CARLA map: (Town01, ...  Town07)',
                         required=False)
-    args = parser.parse_args()
+    args = parser.parse_args()      
 
 
     if not args.operation:
@@ -417,10 +438,12 @@ if __name__ == '__main__':
 
     sensor_config = { #default sensor configuration
         
-    'image_size_x': 800,  # Width of the image in pixels
-    'image_size_y': 600,  # Height of the image in pixels
+    'image_size_x': 640,  # Width of the image in pixels
+    'image_size_y': 480,  # Height of the image in pixels
     'fov': 90,            # Field of view in degrees
 } 
+    
+
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
@@ -448,7 +471,7 @@ if __name__ == '__main__':
 
         epsilon = epsilon_start
         for episode in range(num_episodes):
-            state = env.reset()['camera_front']
+            state = env.reset()
             # print(f"main, state.shape after reset = {state.shape}")
             # print(state)
        #     display.reset()
@@ -463,7 +486,7 @@ if __name__ == '__main__':
                 # Select action using epsilon greedy policy
                 action = env.epsilon_greedy_action(state_tensor, epsilon)
                 next_state, reward, done, _ = env.step(action)
-                next_state = next_state['camera_front']
+                # next_state = next_state
 
                 # Convert next_state to tensor and move to device
                 next_state_tensor = torch.from_numpy(next_state).unsqueeze(0).to(device) if next_state is not None else None
