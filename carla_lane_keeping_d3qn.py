@@ -3,7 +3,8 @@ from collections import deque, namedtuple
 import random
 import numpy as np
 import carla
-import timefrom copy import deepcopy
+import time
+from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -101,38 +102,35 @@ class ReplayBuffer:
 class Environment:
     def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0):
         
-        #reset environment
+        #Connecting to Carla Client
         self.client = carla_client
         self.world = self.client.get_world()
+
         # if loading specifc map
         if (map != 0):
             self.world= self.client.load_world(map)
+        """ This portion can be moved to env.reset
          #delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
         vehicle_and_sensor_ids = [actor.id for actor in actor_list if (('vehicle' in  actor.type_id) or ('sensor' in actor.type_id))]
-        #sensor_ids= [actor.id for actor in actor_list if 'sensor' in  actor.type_id]
-        for id in vehicle_and_sensor_ids:
+        for id in vehicle_and_sensor_ids:   #delete all vehicles and cameras
             created_actor = self.world.get_actor(id)
             created_actor.destroy()
+            print("Deleted", created_actor)
+        """
+        ## Setting environment attributes
         self.car_config = car_config
         self.sensor_config = sensor_config
         self.rf = reward_function
-
         self.blueprint_library = self.world.get_blueprint_library()
-
-      #  print(self.blueprint_library)
         self.vehicle_bps = [bp for bp in self.blueprint_library.filter('vehicle') if bp.has_attribute('number_of_wheels')]
-
-
-       # print(self.vehicle_bps[0])
-       # print(self.vehicle_bps[1])
-      #  print(self.vehicle_bps[2])
         self.vehicle_bp = self.vehicle_bps[0]
         self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         self.camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
         self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))
         self.camera_bp.set_attribute('fov', str(sensor_config['fov']))
 
+        """ This portion can be moved to env.reset
         camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         #available spawn points:
         spawn_points = self.world.get_map().get_spawn_points()
@@ -145,7 +143,7 @@ class Environment:
 
         self.distance = 0
         self.prev_xy = np.zeros((2, ))
-
+        """
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
         throttle_range = np.linspace(0, 1, 10)
         steer_range = np.linspace(-1, 1, 10)
@@ -154,8 +152,15 @@ class Environment:
 
     def reset(self):   # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
-        if hasattr(self, 'vehicle'):
-            self.vehicle.destroy()
+        #delete what we created, eg. vehicles and sensors
+        actor_list = self.world.get_actors()
+        vehicle_and_sensor_ids = [actor.id for actor in actor_list if (('vehicle' in  actor.type_id) or ('sensor' in actor.type_id))]
+        for id in vehicle_and_sensor_ids:   #delete all vehicles and cameras
+            created_actor = self.world.get_actor(id)
+            created_actor.destroy()
+            print("Deleted", created_actor)
+
+
         spawn_points = self.world.get_map().get_spawn_points()
         self.spawn_point = random.choice(spawn_points)
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
@@ -435,6 +440,7 @@ if __name__ == '__main__':
 
 
     if not args.operation:
+        print ("Operation argument is required")
         raise ValueError("Operation argument is required. Use '--operation Load' or '--operation New'.")
 
 
