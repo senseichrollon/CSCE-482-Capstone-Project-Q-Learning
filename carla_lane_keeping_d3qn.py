@@ -123,7 +123,7 @@ class Environment:
         ## Setting environment attributes
         self.car_config = car_config
         self.sensor_config = sensor_config
-        self.rf = reward_function
+        self.rf = int(reward_function[0])
         self.blueprint_library = self.world.get_blueprint_library()
         self.vehicle_bps = [bp for bp in self.blueprint_library.filter('vehicle') if bp.has_attribute('number_of_wheels')]
         self.vehicle_bp = self.vehicle_bps[0]
@@ -172,10 +172,14 @@ class Environment:
         camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4)) #camera offset relative to cars origin, 
         # changeable, depending where the camera actually is
         self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
-        self.camera.listen(lambda data: self.process_image(data))
+        self.camera.listen(lambda data: self.process_image(data
+                                                           ))
 
         self.distance = 0
         self.prev_xy = np.array([self.vehicle.get_location().x, self.vehicle.get_location().y])
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
 
         # Start collecting data
         self.image = None
@@ -193,6 +197,7 @@ class Environment:
 
     def step(self, action):
         throttle, steer = action
+      #  print(self.action_space)
         self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
 
         self.world.tick()
@@ -212,19 +217,72 @@ class Environment:
         else:
             reward = self.reward_3()
             Py, Wd = self.get_lateral_position_error_and_lane_width()
-            print(f'road calc: {Py}, {Wd}')
             done = Py > Wd*3
 
         info = {}  
 
         return self.image, reward, done, info
-
     def reward_1(self):
+        """
+        Discrete reward function for CARLA:
+        - Penalize the agent heavily for getting out of lane.
+        - Penalize for exceeding max rotation.
+        - Penalize for not being centered on the road.
+        """
 
+        # Assume we have access to the vehicle's location and rotation
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        vehicle_rotation = vehicle_transform.rotation.yaw
 
-        reward =0
-        done=True
+        # Convert yaw to radians and normalize between -pi and pi
+        vehicle_rotation_radians = math.radians(vehicle_rotation)
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+
+        # Maximal rotation (yaw angle) allowed
+        maximal_rotation = np.pi / 10
+        exceed_max_rotation = np.abs(vehicle_rotation_radians) > maximal_rotation
+
+        # Getting the vehicle's lane information
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        road_half_width = waypoint.lane_width / 2.
+
+        # Calculate the distance from the center of the lane+
+        center_of_lane = waypoint.transform.location
+        distance_from_center = vehicle_location.distance(center_of_lane)
+
+        # Determine if the vehicle is out of lane or not near the center
+        out_of_lane = self.is_vehicle_within_lane() is False
+        not_near_center = distance_from_center > road_half_width / 4
+        print(distance_from_center)
+
+        # Determine if the episode should end
+        done = out_of_lane
+
+        # Compute reward based on conditions
+        current_xy = np.array([vehicle_location.x, vehicle_location.y])
+        reward = 0
+        if out_of_lane:
+            reward = -100
+        elif exceed_max_rotation:
+            reward = -0.5
+        else:
+            # Calculate distance moved towards the driving direction since last tick
+            
+            dd = np.linalg.norm(current_xy - self.prev_xy)
+            reward = dd * 50  # Assuming the simulation has a tick rate where this scaling makes sense
+
+        if not_near_center:
+            reward -= 0.5
+        else:
+            reward += 2
+
+        # Update previous location for next reward calculation
+        self.prev_xy = current_xy
+
         return reward, done
+
 
     def reward_2(self):
 
@@ -237,10 +295,10 @@ class Environment:
         reward=0
         done=False
         theta = self.calculate_angle_between_vectors(self.get_vehicle_direction(), self.get_road_direction())
-        print(f'theta: {theta}')
+   #     print(f'theta: {theta}')
         Py, Wd = self.get_lateral_position_error_and_lane_width()
         i_fail = 1 if self.is_vehicle_within_lane() else 0
-        print(f'ifail: {i_fail}')
+    #    print(f'ifail: {i_fail}')
         reward =  reward = math.cos(theta) - abs(Py / Wd) - (2 * i_fail)
         return reward
     
@@ -329,7 +387,6 @@ class Environment:
         # print(f"\tstate.shape = {state.shape}")
         state = state.permute(0, 3, 1, 2)
         prob = np.random.uniform()
-        print(state.shape)
         if prob < epsilon:
             self.action_idx = np.random.randint(len(self.action_space))
             return self.action_space[self.action_idx]
@@ -462,6 +519,7 @@ if __name__ == '__main__':
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
+    print(args.reward_function)
     env = Environment( client, car_config, sensor_config, args.reward_function, map)
     if args.operation[0].lower() == 'new':
 
