@@ -11,6 +11,9 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import math
 import cv2
+import sys
+from PIL import Image
+
 """
 Replay buffer class
 """
@@ -101,6 +104,61 @@ class ReplayBuffer:
     def size(self):
         return len(self.buffer)
     
+class HUD:
+    def __init__(self, width, height):
+        self.dim = (width, height)
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.font_scale = 0.5
+        self.font_color = (255, 255, 255)
+        self.line_height = 20
+        self.x_offset = 10
+        self.y_offset = 20
+        self.speed = 0
+        self.throttle = 0
+        self.steer = 0
+        self.heading = ''
+        self.location = ''
+        self.collision = []
+        self.nearby_vehicles = []
+        
+    
+    
+    def update(self, speed, throttle, steer, heading, location, collision, nearby_vehicles):
+        self.speed = speed
+        self.throttle = throttle
+        self.steer = steer
+        self.heading = heading
+        self.location = location
+        self.collision = collision
+        self.nearby_vehicles = nearby_vehicles
+        
+    def tick(self, camera_image):
+        
+        # Create a blank HUD image
+        hud_image = np.zeros((self.dim[1], self.dim[0], 3), dtype=np.uint8)
+        
+        # Add black block on the left side
+        hud_image[:, :100, :] = (0, 0, 0)
+
+        # Add HUD elements
+        cv2.putText(hud_image, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, f'Steer: {self.steer:.2f}', (10, 80), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, f'Heading: {self.heading}', (10, 100), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, f'Location: {self.location}', (10, 120), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, 'Collision:', (10, 140), self.font, self.font_scale, self.font_color, 1)
+        for i, value in enumerate(self.collision):
+            cv2.putText(hud_image, f'{i}: {value:.2f}', (10, 160 + i * 20), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(hud_image, f'Nearby vehicles:', (10, 160 + len(self.collision) * 20), self.font, self.font_scale, self.font_color, 1)
+        for i, vehicle in enumerate(self.nearby_vehicles):
+            cv2.putText(hud_image, f'{i}: {vehicle}', (10, 180 + (len(self.collision) + i) * 20), self.font, self.font_scale, self.font_color, 1)
+
+        # Overlay HUD image onto camera image
+        camera_image_with_hud = cv2.addWeighted(camera_image, 1, hud_image, 0.5, 0)
+        
+        return camera_image_with_hud
+
+        
 class Environment:
     def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0):
         
@@ -152,6 +210,9 @@ class Environment:
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
         
         #self.camera.listen(lambda data: self.process_image(data))
+        
+        # Initialize HUD
+        self.hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
 
     def reset(self):   # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
@@ -179,7 +240,7 @@ class Environment:
         self.prev_xy = np.array([self.vehicle.get_location().x, self.vehicle.get_location().y])
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
-        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        # waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
 
         # Start collecting data
         self.image = None
@@ -191,9 +252,6 @@ class Environment:
         i = np.array(image.raw_data)
         i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
         self.image = i2[:, :, :3]
-            # Display the image using OpenCV
-        cv2.imshow("Camera View", self.image)
-        cv2.waitKey(1)  # Update the display
 
     def step(self, action):
         throttle, steer = action
@@ -222,6 +280,7 @@ class Environment:
         info = {}  
 
         return self.image, reward, done, info
+
     def reward_1(self):
         """
         Discrete reward function for CARLA:
@@ -566,6 +625,10 @@ if __name__ == '__main__':
         map = args.map[0]
     print(args.reward_function)
     env = Environment( client, car_config, sensor_config, args.reward_function, map)
+    
+    
+    # initialize HUD
+    hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
     if args.operation[0].lower() == 'new':
 
         """
@@ -588,6 +651,7 @@ if __name__ == '__main__':
         num_steps = np.array([])
 
         epsilon = epsilon_start
+        
         for episode in range(num_episodes):
             state = env.reset()
             # print(f"main, state.shape after reset = {state.shape}")
@@ -630,10 +694,23 @@ if __name__ == '__main__':
 
                 if step % target_update == 0 or done:
                     target_network.load_state_dict(network.state_dict())
+                     
 
                 step += 1
                 # cv2.imshow(f'Car Agent in Episode {episode}', vis_img[:, :, ::-1])
                 # cv2.waitKey(5)
+                
+                # hud.update(env.vehicle.get_velocity().x, throttle, steer)
+                
+                # Get camera image
+                camera_image = env.image  # Assumss
+                
+                # Display HUD and camera view
+                camera_image_with_hud = hud.tick(camera_image)
+                cv2.imshow("Camera View with HUD", camera_image_with_hud)
+                cv2.waitKey(1)
+                
+            
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
 
