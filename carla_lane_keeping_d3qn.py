@@ -286,9 +286,54 @@ class Environment:
 
     def reward_2(self):
 
+        """
+        Reward function that does not account for max rotation exceeded
+        """
+    
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        vehicle_rotation = vehicle_transform.rotation.yaw
 
-        reward=0
-        done=True
+        # Convert yaw to radians and normalize between -pi and pi
+        vehicle_rotation_radians = math.radians(vehicle_rotation)
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+
+        # Maximal rotation (yaw angle) allowed
+        maximal_rotation = np.pi / 10
+        exceed_max_rotation = np.abs(vehicle_rotation_radians) > maximal_rotation
+
+        # Getting the vehicle's lane information
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        road_half_width = waypoint.lane_width / 2.
+
+        # Calculate the distance from the center of the lane+
+        center_of_lane = waypoint.transform.location
+        distance_from_center = vehicle_location.distance(center_of_lane)
+
+        # Determine if the vehicle is out of lane or not near the center
+        out_of_lane = self.is_vehicle_within_lane() is False
+        not_near_center = distance_from_center > road_half_width / 4
+        print(distance_from_center)
+
+        # Determine if the episode should end
+        done = out_of_lane
+
+        # Compute reward based on conditions
+        current_xy = np.array([vehicle_location.x, vehicle_location.y])
+        dd = np.linalg.norm(current_xy - self.prev_xy)
+        reward = 0
+
+        if out_of_lane:
+            reward = -100
+        else:
+            reward = dd * 5
+
+        if not_near_center:
+            reward -= 0.5
+        else:
+            reward += 2
+
         return reward, done
 
     def reward_3(self):
