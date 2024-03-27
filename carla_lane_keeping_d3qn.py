@@ -17,7 +17,7 @@ from PIL import Image
 """
 Replay buffer class
 """
-NUM_ACTIONS = 100
+NUM_ACTIONS = 40
 
 
 # Carla Client attribute
@@ -205,14 +205,36 @@ class Environment:
         self.prev_xy = np.zeros((2, ))
         """
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
-        throttle_range = np.linspace(0, 1, 10)
-        steer_range = np.linspace(-1, 1, 10)
+        throttle_range = np.linspace(0, 0.5, 5)
+        steer_range = np.linspace(-1, 1, 8)
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
+        self.spawn_point = None
         
         #self.camera.listen(lambda data: self.process_image(data))
         
         # Initialize HUD
         self.hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
+    def on_collision(self, event):
+        self.collision_detected = True
+
+    def define_path(self):
+        # This is a simplified example. You might want to define a more complex path.
+        start_waypoint = self.world.get_map().get_waypoint(self.spawn_point.location)
+        end_waypoint = start_waypoint.next(100.0)[0]  # Assuming 100 meters ahead for this example
+        self.path = [start_waypoint, end_waypoint]
+        # In a real scenario, you'd populate 'self.path' with a series of waypoints forming the desired route.
+    def is_vehicle_on_path(self):
+        vehicle_location = self.vehicle.get_location()
+        # Find the closest waypoint to the vehicle on the predefined path
+        closest_distance = min([vehicle_location.distance(waypoint.transform.location) for waypoint in self.path])
+    
+        # Define a threshold for being off-path. This will need to be adjusted based on your scenario.
+        off_path_threshold = 5.0  # meters
+        
+        return closest_distance <= off_path_threshold
+
+    
+
 
     def reset(self):   # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
@@ -224,9 +246,9 @@ class Environment:
             created_actor.destroy()
             print("Deleted", created_actor)
 
-
-        spawn_points = self.world.get_map().get_spawn_points()
-        self.spawn_point = random.choice(spawn_points)
+        if self.spawn_point is None:
+            spawn_points = self.world.get_map().get_spawn_points()
+            self.spawn_point = random.choice(spawn_points)
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
 
         # Attach the camera sensor
@@ -235,6 +257,10 @@ class Environment:
         self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
         self.camera.listen(lambda data: self.process_image(data
                                                            ))
+        collision_bp = self.blueprint_library.find('sensor.other.collision')
+        self.collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.vehicle)
+        self.collision_detected = False
+        self.collision_sensor.listen(lambda event: self.on_collision(event))
 
         self.distance = 0
         self.prev_xy = np.array([self.vehicle.get_location().x, self.vehicle.get_location().y])
@@ -265,7 +291,7 @@ class Environment:
         current_xy = np.array([current_location.x, current_location.y])
         dd = np.linalg.norm(current_xy - self.prev_xy)
         self.distance += dd
-        self.prev_xy = current_xy
+
 
         # Calculate reward based on the chosen reward function
         if self.rf == 1:
@@ -273,12 +299,10 @@ class Environment:
         elif self.rf == 2:
             reward, done = self.reward_2()
         else:
-            reward = self.reward_3()
-            Py, Wd = self.get_lateral_position_error_and_lane_width()
-            done = Py > Wd*3
+            reward, done = self.reward_3()
 
         info = {}  
-
+        self.prev_xy = current_xy
         return self.image, reward, done, info
 
     def reward_1(self):
@@ -287,9 +311,9 @@ class Environment:
         - Penalize the agent heavily for getting out of lane.
         - Penalize for exceeding max rotation.
         - Penalize for not being centered on the road.
+        - Penalize heavily if the vehicle is going in the opposite direction of the road.
         """
-
-        # Assume we have access to the vehicle's location and rotation
+        
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
@@ -305,41 +329,46 @@ class Environment:
         # Getting the vehicle's lane information
         map = self.world.get_map()
         waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
-        road_half_width = waypoint.lane_width / 2.
 
-        # Calculate the distance from the center of the lane+
+        # Calculate the heading difference between the vehicle and the road
+        road_direction = waypoint.transform.rotation.yaw
+        road_direction_radians = math.radians(road_direction)
+        heading_difference = abs(vehicle_rotation_radians - road_direction_radians) % (2 * np.pi)
+        if heading_difference > np.pi:
+            heading_difference = 2 * np.pi - heading_difference
+        
+        # Heavily penalize if the vehicle is going in the opposite direction (more than 90 degrees away from road direction)
+        going_opposite_direction = heading_difference > np.pi / 2
+
+        road_half_width = waypoint.lane_width / 2.
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
-        # Determine if the vehicle is out of lane or not near the center
         out_of_lane = self.is_vehicle_within_lane() is False
-        not_near_center = distance_from_center > road_half_width / 4
-        print(distance_from_center)
-
+        not_near_center = distance_from_center > road_half_width / 2
+        print(not_near_center, math.degrees(heading_difference))
         # Determine if the episode should end
-        done = out_of_lane
+        done = not_near_center or going_opposite_direction or self.collision_detected
 
         # Compute reward based on conditions
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         reward = 0
-        if out_of_lane:
-            reward = -100
+        if self.collision_detected:
+            done = True
+            reward = -1000
+        elif done:
+            reward = -100 if not_near_center else -500  # More severe penalty for going in the opposite direction
         elif exceed_max_rotation:
-            reward = -0.5
+            reward = -50
         else:
             # Calculate distance moved towards the driving direction since last tick
-            
             dd = np.linalg.norm(current_xy - self.prev_xy)
             reward = dd * 50  # Assuming the simulation has a tick rate where this scaling makes sense
+        
+        reward += (np.pi/2 - heading_difference) * -100
 
-        if not_near_center:
-            reward -= 0.5
-        else:
-            reward += 2
-
-        # Update previous location for next reward calculation
         self.prev_xy = current_xy
-
+        self.collision_detected = False
         return reward, done
 
 
@@ -348,17 +377,7 @@ class Environment:
         """
         Reward function that does not account for max rotation exceeded
         """
-    
-        vehicle_transform = self.vehicle.get_transform()
-        vehicle_location = vehicle_transform.location
-        vehicle_rotation = vehicle_transform.rotation.yaw
 
-        # Convert yaw to radians and normalize between -pi and pi
-        vehicle_rotation_radians = math.radians(vehicle_rotation)
-        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
-
-        # Maximal rotation (yaw angle) allowed
-        maximal_rotation = np.pi / 10
         exceed_max_rotation = np.abs(vehicle_rotation_radians) > maximal_rotation
 
         # Getting the vehicle's lane information
@@ -398,13 +417,60 @@ class Environment:
     def reward_3(self):
         reward=0
         done=False
-        theta = self.calculate_angle_between_vectors(self.get_vehicle_direction(), self.get_road_direction())
-   #     print(f'theta: {theta}')
-        Py, Wd = self.get_lateral_position_error_and_lane_width()
-        i_fail = 1 if self.is_vehicle_within_lane() else 0
-    #    print(f'ifail: {i_fail}')
-        reward =  reward = math.cos(theta) - abs(Py / Wd) - (2 * i_fail)
-        return reward
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        vehicle_rotation = vehicle_transform.rotation.yaw
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+
+
+
+        # Convert yaw to radians and normalize between -pi and pi
+        vehicle_rotation_radians = math.radians(vehicle_rotation)
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+
+
+        road_direction = waypoint.transform.rotation.yaw
+        road_direction_radians = math.radians(road_direction)
+        theta = abs(vehicle_rotation_radians - road_direction_radians) % (2 * np.pi)
+        if theta > np.pi:
+            theta = 2 * np.pi - theta
+        going_opposite_direction = theta > np.pi / 2
+
+        road_half_width = waypoint.lane_width / 2.
+
+        # Calculate the distance from the center of the lane+
+        center_of_lane = waypoint.transform.location
+        distance_from_center = vehicle_location.distance(center_of_lane)
+
+        not_near_center = distance_from_center > road_half_width / 2
+        done = not_near_center or going_opposite_direction or self.collision_detected
+
+        current_xy = np.array([vehicle_location.x, vehicle_location.y])
+        dd = np.linalg.norm(current_xy - self.prev_xy)
+
+        # left_waypoint = waypoint.get_left_lane()
+        # right_waypoint = waypoint.get_right_lane()
+        # Py = 0
+        # if left_waypoint is not None and right_waypoint is not None:
+        #     # Calculate the midpoint between the two waypoints
+        #     midpoint = carla.Location(
+        #         x=(left_waypoint.transform.location.x + right_waypoint.transform.location.x) / 2,
+        #         y=(left_waypoint.transform.location.y + right_waypoint.transform.location.y) / 2,
+        #         z=(left_waypoint.transform.location.z + right_waypoint.transform.location.z) / 2
+        #     )
+
+        #     # Calculate the distance from the vehicle to the midpoint
+        #     Py = vehicle_location.distance(midpoint)
+       # print(f'theta: {math.degrees(theta)}')
+        Py = distance_from_center
+        Wd = waypoint.lane_width/2.5
+        print(f'Py, Wd: {Py}, {Wd}')
+        i_fail = 1 if done else 0
+      #  print(f'ifail: {i_fail}')
+        print(Py)
+        reward = dd *2 + math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
+        return reward, done
     
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
@@ -639,7 +705,7 @@ if __name__ == '__main__':
         gamma = 0.99 
         epsilon_start = 1.0
         epsilon_end = 0.01
-        epsilon_decay = 0.96
+        epsilon_decay = 0.98
         num_episodes = 200
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 100
