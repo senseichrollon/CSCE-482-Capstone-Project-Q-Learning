@@ -443,7 +443,7 @@ class Environment:
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
-        not_near_center = distance_from_center > road_half_width / 2
+        not_near_center = distance_from_center > road_half_width / 1.5
         done = not_near_center or going_opposite_direction or self.collision_detected
 
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
@@ -465,11 +465,12 @@ class Environment:
        # print(f'theta: {math.degrees(theta)}')
         Py = distance_from_center
         Wd = waypoint.lane_width/2.5
-        print(f'Py, Wd: {Py}, {Wd}')
+      #  print(f'Py, Wd: {Py}, {Wd}')
         i_fail = 1 if done else 0
       #  print(f'ifail: {i_fail}')
-        print(Py)
-        reward = dd *2 + math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
+     #   print(Py)
+        reward = dd + 2*math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
+        print(reward)
         return reward, done
     
     def get_vehicle_direction(self):
@@ -705,8 +706,8 @@ if __name__ == '__main__':
         gamma = 0.99 
         epsilon_start = 1.0
         epsilon_end = 0.01
-        epsilon_decay = 0.98
-        num_episodes = 200
+        epsilon_decay = 0.995
+        num_episodes = 500
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 100
 
