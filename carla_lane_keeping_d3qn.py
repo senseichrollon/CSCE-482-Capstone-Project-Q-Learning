@@ -23,6 +23,7 @@ Global Variable List
 sim_time = 0
 start_time = 0
 num_ep = 0
+reward_num = 0
 
 """
 Replay buffer class
@@ -305,26 +306,27 @@ class Environment:
         i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
         self.image = i2[:, :, :3]
         image_array_copy = self.image.copy()
-        self.text = str(self.vehicle.get_velocity())
-        position = (50,50)
         self.font = cv2.FONT_HERSHEY_SIMPLEX
-        self.font_scale = 1
-        font_thickness = 2
+        self.font_scale = 0.5
         self.font_color = (255, 255, 255)
         elapsed_since_last_iteration = time.time()- start_time
         self.time = elapsed_since_last_iteration
         self.episode = num_ep
+        self.reward_number = reward_num
+        # Calculate the speed (magnitude of velocity)
+        velocity = self.vehicle.get_velocity()
+        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+        speed = speed ** 0.5
+    
+        # display location
+        location = self.vehicle.get_location()
+        formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
 
-        cv2.putText(image_array_copy, self.text, position, self.font, self.font_scale, self.font_color, font_thickness)
-        cv2.putText(image_array_copy, str(self.time), (10,100), self.font, self.font_scale, self.font_color, font_thickness)
-        cv2.putText(image_array_copy, str(self.episode), (10,120), self.font, self.font_scale, self.font_color, font_thickness)
-        #cv2.putText(image_array_copy, 'Speed: {self.text} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
-        #cv2.putText(image_array_copy, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(image_array_copy, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(image_array_copy, f'Steer: {self.steer:.2f}', (10, 80), self.font, self.font_scale, self.font_color, 1)
-        #cv2.putText(image_array_copy, f'Heading: {self.heading}', (10, 100), self.font, self.font_scale, self.font_color, 1)
-        #cv2.putText(image_array_copy, f'Location: {self.location}', (10, 120), self.font, self.font_scale, self.font_color, 1)
-        #cv2.putText(image_array_copy, 'Collision:', (10, 140), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
  
         cv2.imshow("Camera View", image_array_copy)
         cv2.waitKey(5)
@@ -816,6 +818,7 @@ if __name__ == '__main__':
         num_episodes = 1000
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 800
+        reward_num = args.reward_function[0]
 
         best_dict_reward = -1e10
 
@@ -831,6 +834,7 @@ if __name__ == '__main__':
             state = env.reset()
             elapsed_since_last_iteration = time.time() - start_time
             start_time = time.time()
+            
 
             # print(f"main, state.shape after reset = {state.shape}")
             # print(state)
