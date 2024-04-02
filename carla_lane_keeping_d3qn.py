@@ -14,6 +14,16 @@ import cv2
 import sys
 from PIL import Image
 
+
+
+
+"""
+Global Variable List
+"""
+sim_time = 0
+start_time = 0
+num_ep = 0
+
 """
 Replay buffer class
 """
@@ -301,7 +311,12 @@ class Environment:
         self.font_scale = 1
         font_thickness = 2
         self.font_color = (255, 255, 255)
+        elapsed_since_last_iteration = time.time()- start_time
+        self.time = elapsed_since_last_iteration
+
         cv2.putText(image_array_copy, self.text, position, self.font, self.font_scale, self.font_color, font_thickness)
+        cv2.putText(image_array_copy, str(self.time), (10,100), self.font, self.font_scale, self.font_color, font_thickness)
+
         #cv2.putText(image_array_copy, 'Speed: {self.text} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
         #cv2.putText(image_array_copy, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
         cv2.putText(image_array_copy, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
@@ -808,9 +823,14 @@ if __name__ == '__main__':
         num_steps = np.array([])
 
         epsilon = epsilon_start
-        
+        start_time = time.time()
+
         for episode in range(num_episodes):
+            num_ep = episode
             state = env.reset()
+            elapsed_since_last_iteration = time.time()- start_time
+            start_time = time.time()
+
             # print(f"main, state.shape after reset = {state.shape}")
             # print(state)
        #     display.reset()
