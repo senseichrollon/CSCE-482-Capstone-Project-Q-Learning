@@ -17,7 +17,7 @@ from PIL import Image
 """
 Replay buffer class
 """
-NUM_ACTIONS = 40
+NUM_ACTIONS = 50
 
 
 # Carla Client attribute
@@ -160,7 +160,7 @@ class HUD:
 
         
 class Environment:
-    def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0):
+    def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0, spawn_index=67):
         
         #Connecting to Carla Client
         self.client = carla_client
@@ -206,9 +206,11 @@ class Environment:
         """
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
         throttle_range = np.linspace(0, 0.5, 5)
-        steer_range = np.linspace(-1, 1, 8)
+        steer_range = np.linspace(-.25, .25, 10)
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
         self.spawn_point = None
+        if spawn_index is not None:
+            self.spawn_point = self.world.get_map().get_spawn_points()[spawn_index]
         
         #self.camera.listen(lambda data: self.process_image(data))
         
@@ -217,21 +219,21 @@ class Environment:
     def on_collision(self, event):
         self.collision_detected = True
 
-    def define_path(self):
-        # This is a simplified example. You might want to define a more complex path.
-        start_waypoint = self.world.get_map().get_waypoint(self.spawn_point.location)
-        end_waypoint = start_waypoint.next(100.0)[0]  # Assuming 100 meters ahead for this example
-        self.path = [start_waypoint, end_waypoint]
-        # In a real scenario, you'd populate 'self.path' with a series of waypoints forming the desired route.
-    def is_vehicle_on_path(self):
-        vehicle_location = self.vehicle.get_location()
-        # Find the closest waypoint to the vehicle on the predefined path
-        closest_distance = min([vehicle_location.distance(waypoint.transform.location) for waypoint in self.path])
+    # def define_path(self):
+    #     # This is a simplified example. You might want to define a more complex path.
+    #     start_waypoint = self.world.get_map().get_waypoint(self.spawn_point.location)
+    #     end_waypoint = start_waypoint.next(100.0)[0]  # Assuming 100 meters ahead for this example
+    #     self.path = [start_waypoint, end_waypoint]
+    #     # In a real scenario, you'd populate 'self.path' with a series of waypoints forming the desired route.
+    # def is_vehicle_on_path(self):
+    #     vehicle_location = self.vehicle.get_location()
+    #     # Find the closest waypoint to the vehicle on the predefined path
+    #     closest_distance = min([vehicle_location.distance(waypoint.transform.location) for waypoint in self.path])
     
-        # Define a threshold for being off-path. This will need to be adjusted based on your scenario.
-        off_path_threshold = 5.0  # meters
+    #     # Define a threshold for being off-path. This will need to be adjusted based on your scenario.
+    #     off_path_threshold = 5.0  # meters
         
-        return closest_distance <= off_path_threshold
+    #     return closest_distance <= off_path_threshold
 
     
 
@@ -240,15 +242,29 @@ class Environment:
         # Spawn or respawn the vehicle at a random location
         #delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
-        vehicle_and_sensor_ids = [actor.id for actor in actor_list if (('vehicle' in  actor.type_id) or ('sensor' in actor.type_id))]
-        for id in vehicle_and_sensor_ids:   #delete all vehicles and cameras
-            created_actor = self.world.get_actor(id)
-            created_actor.destroy()
-            print("Deleted", created_actor)
+
+        # Identify IDs of vehicles and sensors to be deleted
+        vehicle_and_sensor_ids = [
+            actor.id for actor in actor_list
+            if 'vehicle' in actor.type_id or 'sensor' in actor.type_id
+        ]
+
+        # Iterate over the list of IDs to delete each actor
+        for actor_id in vehicle_and_sensor_ids:
+            # Attempt to get the actor by ID
+            actor_to_delete = self.world.get_actor(actor_id)
+            if actor_to_delete is not None:
+                # If the actor exists, delete it
+                actor_to_delete.destroy()
+                print("Deleted:", actor_to_delete.type_id, "with ID:", actor_to_delete.id)
+            else:
+                # If the actor doesn't exist, print a message (optional)
+                print("Actor with ID", actor_id, "not found.")
 
         if self.spawn_point is None:
             spawn_points = self.world.get_map().get_spawn_points()
             self.spawn_point = random.choice(spawn_points)
+            print(f'spawn index: {spawn_points.index(self.spawn_point)}')
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
 
         # Attach the camera sensor
@@ -490,7 +506,64 @@ class Environment:
         reward = dd + 2*math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
         print(reward)
         return reward, done
-    
+    def reward_4(self):
+        reward=0
+        done=False
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        vehicle_rotation = vehicle_transform.rotation.yaw
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+
+
+
+        # Convert yaw to radians and normalize between -pi and pi
+        vehicle_rotation_radians = math.radians(vehicle_rotation)
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+
+
+        road_direction = waypoint.transform.rotation.yaw
+        road_direction_radians = math.radians(road_direction)
+        theta = abs(vehicle_rotation_radians - road_direction_radians) % (2 * np.pi)
+        if theta > np.pi:
+            theta = 2 * np.pi - theta
+        going_opposite_direction = theta > np.pi / 2
+
+        road_half_width = waypoint.lane_width / 2.
+
+        # Calculate the distance from the center of the lane+
+        center_of_lane = waypoint.transform.location
+        distance_from_center = vehicle_location.distance(center_of_lane)
+
+        not_near_center = distance_from_center > road_half_width / 3
+        done = not_near_center or going_opposite_direction or self.collision_detected
+
+        current_xy = np.array([vehicle_location.x, vehicle_location.y])
+        dd = np.linalg.norm(current_xy - self.prev_xy)
+
+        # left_waypoint = waypoint.get_left_lane()
+        # right_waypoint = waypoint.get_right_lane()
+        # Py = 0
+        # if left_waypoint is not None and right_waypoint is not None:
+        #     # Calculate the midpoint between the two waypoints
+        #     midpoint = carla.Location(
+        #         x=(left_waypoint.transform.location.x + right_waypoint.transform.location.x) / 2,
+        #         y=(left_waypoint.transform.location.y + right_waypoint.transform.location.y) / 2,
+        #         z=(left_waypoint.transform.location.z + right_waypoint.transform.location.z) / 2
+        #     )
+
+        #     # Calculate the distance from the vehicle to the midpoint
+        #     Py = vehicle_location.distance(midpoint)
+       # print(f'theta: {math.degrees(theta)}')
+        Py = distance_from_center
+        Wd = waypoint.lane_width/2.5
+      #  print(f'Py, Wd: {Py}, {Wd}')
+        i_fail = 1 if done else 0
+      #  print(f'ifail: {i_fail}')
+     #   print(Py)
+        reward = math.sqrt(dd) *(math.cos(theta) - abs(Py / Wd) - (2 * i_fail))
+        print(reward)
+        return reward, done   
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
         rotation = transform.rotation
@@ -708,7 +781,6 @@ if __name__ == '__main__':
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
-    print(args.reward_function)
     env = Environment( client, car_config, sensor_config, args.reward_function, map)
     
     
@@ -725,9 +797,9 @@ if __name__ == '__main__':
         epsilon_start = 1.0
         epsilon_end = 0.01
         epsilon_decay = 0.995
-        num_episodes = 500
+        num_episodes = 1000
         target_update = 10  # Update target network every 10 episodes
-        max_num_steps = 100
+        max_num_steps = 800
 
         best_dict_reward = -1e10
 
