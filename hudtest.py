@@ -75,13 +75,23 @@ def process_image(image):
     image_array_copy = image_array.copy()
 
     # Display the image using OpenCV
-    text = str(vehicle.get_velocity())
-    position = (50,50)
+    
+    # Calculate the speed (magnitude of velocity)
+    velocity = vehicle.get_velocity()
+    speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+    speed = speed ** 0.5
+    
+    # display location
+    location = vehicle.get_location()
+    formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
+
+    
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1
     font_thickness = 2
     color = (255, 255, 255)
-    cv2.putText(image_array_copy, text, position, font, font_scale, color, font_thickness)
+    cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 40), font, 0.5, color)
+    cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 60), font, 0.5, color)
     cv2.imshow("Camera View", image_array_copy)
     cv2.waitKey(1)  # Update the display
 
