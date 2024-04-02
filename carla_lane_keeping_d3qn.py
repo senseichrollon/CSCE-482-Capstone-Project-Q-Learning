@@ -313,10 +313,11 @@ class Environment:
         self.font_color = (255, 255, 255)
         elapsed_since_last_iteration = time.time()- start_time
         self.time = elapsed_since_last_iteration
+        self.episode = num_ep
 
         cv2.putText(image_array_copy, self.text, position, self.font, self.font_scale, self.font_color, font_thickness)
         cv2.putText(image_array_copy, str(self.time), (10,100), self.font, self.font_scale, self.font_color, font_thickness)
-
+        cv2.putText(image_array_copy, str(self.episode), (10,120), self.font, self.font_scale, self.font_color, font_thickness)
         #cv2.putText(image_array_copy, 'Speed: {self.text} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
         #cv2.putText(image_array_copy, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
         cv2.putText(image_array_copy, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
@@ -828,7 +829,7 @@ if __name__ == '__main__':
         for episode in range(num_episodes):
             num_ep = episode
             state = env.reset()
-            elapsed_since_last_iteration = time.time()- start_time
+            elapsed_since_last_iteration = time.time() - start_time
             start_time = time.time()
 
             # print(f"main, state.shape after reset = {state.shape}")
