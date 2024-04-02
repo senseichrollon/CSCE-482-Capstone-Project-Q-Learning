@@ -278,11 +278,29 @@ class Environment:
         i = np.array(image.raw_data)
         i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
         self.image = i2[:, :, :3]
+        image_array_copy = self.image.copy()
+        self.text = str(self.vehicle.get_velocity())
+        position = (50,50)
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.font_scale = 1
+        font_thickness = 2
+        self.font_color = (255, 255, 255)
+        cv2.putText(image_array_copy, self.text, position, self.font, self.font_scale, self.font_color, font_thickness)
+        #cv2.putText(image_array_copy, 'Speed: {self.text} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
+        #cv2.putText(image_array_copy, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(image_array_copy, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(image_array_copy, f'Steer: {self.steer:.2f}', (10, 80), self.font, self.font_scale, self.font_color, 1)
+        #cv2.putText(image_array_copy, f'Heading: {self.heading}', (10, 100), self.font, self.font_scale, self.font_color, 1)
+        #cv2.putText(image_array_copy, f'Location: {self.location}', (10, 120), self.font, self.font_scale, self.font_color, 1)
+        #cv2.putText(image_array_copy, 'Collision:', (10, 140), self.font, self.font_scale, self.font_color, 1)
+ 
+        cv2.imshow("Camera View", image_array_copy)
+        cv2.waitKey(5)
 
     def step(self, action):
-        throttle, steer = action
+        self.throttle, self.steer = action
       #  print(self.action_space)
-        self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
+        self.vehicle.apply_control(carla.VehicleControl(throttle=self.throttle, steer=self.steer))
 
         self.world.tick()
 
@@ -774,8 +792,8 @@ if __name__ == '__main__':
                 
                 # Display HUD and camera view
                 camera_image_with_hud = hud.tick(camera_image)
-                cv2.imshow("Camera View with HUD", camera_image_with_hud)
-                cv2.waitKey(1)
+                #cv2.imshow("Camera View with HUD", camera_image_with_hud)
+                #cv2.waitKey(1)
                 
             
             rewards = np.append(rewards, total_reward / step)
