@@ -843,7 +843,7 @@ if __name__ == '__main__':
         epsilon_end = 0.01
         epsilon_decay = 0.993
         epsilon_decrement = 0.005
-        num_episodes = 400
+        num_episodes = 500
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 500
         reward_num = args.reward_function[0]
