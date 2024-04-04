@@ -8,7 +8,7 @@ def run_backend():
     arg3 = entry3.get()
     arg4 = entry4.get()
     arg5 = entry5.get()
-    subprocess.run(['python', 'bak.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5])
+    subprocess.run(['python', 'test_backend.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5])
 
 
 root = tk.Tk()
