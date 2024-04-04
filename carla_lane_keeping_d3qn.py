@@ -28,7 +28,7 @@ reward_num = 0
 """
 Replay buffer class
 """
-NUM_ACTIONS = 50
+NUM_ACTIONS = 45
 
 
 # Carla Client attribute
@@ -168,7 +168,7 @@ class HUD:
 
         
 class Environment:
-    def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0, spawn_index=67):
+    def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0, spawn_index=None):
         
         #Connecting to Carla Client
         self.client = carla_client
@@ -195,7 +195,7 @@ class Environment:
         self.vehicle_bp = self.vehicle_bps[0]
         self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         self.camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
-        self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))
+        self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))    
         self.camera_bp.set_attribute('fov', str(sensor_config['fov']))
 
         """ This portion can be moved to env.reset
@@ -214,7 +214,8 @@ class Environment:
         """
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
         throttle_range = np.linspace(0, 0.5, 5)
-        steer_range = np.linspace(-.25, .25, 10)
+        steer_range = np.linspace(-.25, .25, 9)
+        print(steer_range)
         self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
         self.spawn_point = None
         if spawn_index is not None:
@@ -372,8 +373,10 @@ class Environment:
             reward, done = self.reward_1()
         elif self.rf == 2:
             reward, done = self.reward_2()
-        else:
+        elif self.rf == 3:
             reward, done = self.reward_3()
+        elif self.rf == 4:
+            reward, done = self.reward_4()
 
         info = {}  
         self.prev_xy = current_xy
@@ -575,7 +578,7 @@ class Environment:
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
-        not_near_center = distance_from_center > road_half_width / 3
+        not_near_center = distance_from_center > road_half_width / 1.5
         done = not_near_center or going_opposite_direction or self.collision_detected
 
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
@@ -601,8 +604,9 @@ class Environment:
         i_fail = 1 if done else 0
       #  print(f'ifail: {i_fail}')
      #   print(Py)
-        reward = math.sqrt(dd) *(math.cos(theta) - abs(Py / Wd) - (2 * i_fail))
-        print(reward)
+        print(done)
+        reward = math.sqrt(dd) + (2*math.cos(theta) - abs(Py / Wd)**1.5 - (4 * i_fail)) - abs(self.steer) * 2
+    #    print(reward)
         return reward, done   
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
@@ -817,11 +821,12 @@ if __name__ == '__main__':
     'fov': 90,            # Field of view in degrees
 } 
     
-
+    spawn_points = [67, 99, 52, 86, 56, 58, 44]
+    spawn_point = random.choice(spawn_points)
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
-    env = Environment( client, car_config, sensor_config, args.reward_function, map)
+    env = Environment( client, car_config, sensor_config, args.reward_function, map, spawn_point)
     
     
     # initialize HUD
@@ -836,8 +841,9 @@ if __name__ == '__main__':
         gamma = 0.99 
         epsilon_start = 1.0
         epsilon_end = 0.01
-        epsilon_decay = 0.995
-        num_episodes = 1000
+        epsilon_decay = 0.993
+        epsilon_decrement = 0.003
+        num_episodes = 350
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 800
         reward_num = args.reward_function[0]
@@ -920,16 +926,18 @@ if __name__ == '__main__':
 
             if total_reward > best_dict_reward:
                 print("Saving new best")
-                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_best_dqn_network_nn_model.pth')
+                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+ f's{spawn_point}' + '_best_dqn_network_nn_model.pth')
                 best_dict_reward = total_reward
 
             print(f'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
 
             # Update epsilon
-            epsilon = max(epsilon_end, epsilon_decay * epsilon)
+       #     epsilon = max(epsilon_end, epsilon_decay * epsilon)
+            epsilon = max(epsilon_end, epsilon - epsilon_decrement)
+
         
         # Save the model's state dictionary
-        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_final_dqn_network_nn_model.pth')
+        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+ f's{spawn_point}' +'_final_dqn_network_nn_model.pth')
 
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")
