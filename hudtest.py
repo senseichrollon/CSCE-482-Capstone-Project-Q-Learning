@@ -87,8 +87,6 @@ def process_image(image):
 
     
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 1
-    font_thickness = 2
     color = (255, 255, 255)
     cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 40), font, 0.5, color)
     cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 60), font, 0.5, color)
