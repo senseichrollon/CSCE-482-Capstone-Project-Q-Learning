@@ -601,11 +601,11 @@ class Environment:
         Py = distance_from_center
         Wd = waypoint.lane_width/2.5
       #  print(f'Py, Wd: {Py}, {Wd}')
-        i_fail = 1 if done else 0
+        i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
       #  print(f'ifail: {i_fail}')
      #   print(Py)
         print(done)
-        reward = math.sqrt(dd) + (2*math.cos(theta) - abs(Py / Wd)**1.5 - (4 * i_fail)) - abs(self.steer) * 2
+        reward = math.sqrt(dd) + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail)) - abs(self.steer)
     #    print(reward)
         return reward, done   
     def get_vehicle_direction(self):
@@ -842,10 +842,10 @@ if __name__ == '__main__':
         epsilon_start = 1.0
         epsilon_end = 0.01
         epsilon_decay = 0.993
-        epsilon_decrement = 0.003
-        num_episodes = 350
+        epsilon_decrement = 0.005
+        num_episodes = 400
         target_update = 10  # Update target network every 10 episodes
-        max_num_steps = 800
+        max_num_steps = 500
         reward_num = args.reward_function[0]
 
         best_dict_reward = -1e10
