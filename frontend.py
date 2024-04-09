@@ -40,9 +40,9 @@ def run_backend():
     arg3 = entry3.get()
     arg4 = entry4.get()
     arg5 = entry5.get()
-    arg6 = entry3.get()
-    arg7 = entry4.get()
-    arg8 = entry5.get()
+    arg6 = entry6.get()
+    arg7 = entry7.get()
+    arg8 = entry8.get()
     subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8])
 
 root = tk.Tk()
