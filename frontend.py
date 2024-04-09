@@ -16,7 +16,13 @@ def translate_labels(root, dest_language):
             original_text = widget.cget("text")
             translated_text = translator.translate(original_text, dest=dest_language_code).text
             widget.config(text=translated_text)
-            
+
+# available operations
+available_ops = ["New", "Load"]
+
+#reward functions
+available_rewards = ["1", "2", "3", "4"]
+
 # available maps
 available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
             
@@ -42,7 +48,7 @@ entry1.grid(row=0, column=1, padx=5, pady=5)
 
 label2 = tk.Label(root, text="Operation:")
 label2.grid(row=1, column=0, padx=5, pady=5)
-entry2 = tk.Entry(root)
+entry2 = ttk.Combobox(root, values=available_ops)
 entry2.grid(row=1, column=1, padx=5, pady=5)
 
 label3 = tk.Label(root, text="Save Path:")
@@ -52,7 +58,7 @@ entry3.grid(row=2, column=1, padx=5, pady=5)
 
 label4 = tk.Label(root, text="Reward Function:")
 label4.grid(row=3, column=0, padx=5, pady=5)
-entry4 = tk.Entry(root)
+entry4 = ttk.Combobox(root, values=available_rewards)
 entry4.grid(row=3, column=1, padx=5, pady=5)
 
 label5 = tk.Label(root, text="Map:")
