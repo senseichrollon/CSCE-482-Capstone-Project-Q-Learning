@@ -899,8 +899,8 @@ if __name__ == '__main__':
             epsilon_decrement = float(args.epsilon_decrement[0]) #default value 0.005
         if args.num_episodes:
             num_episodes = int(args.num_episodes[0]) #default 600
-        if args.num_steps:
-            max_num_steps = int(args.num_steps[0])   #default 300
+        if args.max_steps:
+            max_num_steps = int(args.max_steps[0])   #default 300
 
         reward_num = args.reward_function[0]
 
