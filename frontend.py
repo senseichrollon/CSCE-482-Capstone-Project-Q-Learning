@@ -18,7 +18,7 @@ def translate_labels(root, dest_language):
             widget.config(text=translated_text)
 
 # available operations
-available_ops = ["New", "Load"]
+available_ops = ["New", "Load", "Tune"]
 
 #reward functions
 available_rewards = ["1", "2", "3", "4"]
