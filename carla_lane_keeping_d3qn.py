@@ -766,7 +766,9 @@ def optimize_model(memory, batch_size, gamma):
                 target_q[idx] = target
 
     # print(f"\ttarget_q.shape = {target_q.shape}")
-
+    current_q.to(loss_fn.device)
+    target_q.to(loss_fn.device)
+    #loss_fn.to(device)
     # Compute Huber loss
     loss_q = loss_fn(current_q, target_q)
 
@@ -845,9 +847,13 @@ if __name__ == '__main__':
 
         if args.operation[0].lower() == 'tune':
             network.load_state_dict(torch.load(args.save_path[0]))
+            network.to(device)
+            target_network.to(device)
             print(network)
-      #      network.eval()
+            network.eval()
             target_network = deepcopy(network)
+            # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+            # target_network.to(device)
 
         replay_buffer = ReplayBuffer(10000)
         batch_size = 64
