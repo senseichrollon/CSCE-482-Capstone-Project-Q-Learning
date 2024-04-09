@@ -3,6 +3,7 @@ import subprocess
 from tkinter import ttk
 from googletrans import Translator
 from googletrans import LANGUAGES
+import carla
 
 language_dict = {name: code for code, name in LANGUAGES.items()}
 def translate_labels(root, dest_language):
@@ -15,16 +16,17 @@ def translate_labels(root, dest_language):
             original_text = widget.cget("text")
             translated_text = translator.translate(original_text, dest=dest_language_code).text
             widget.config(text=translated_text)
-
-
+            
+# available maps
+available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
+            
 def run_backend():
     arg1 = entry1.get()
     arg2 = entry2.get()
     arg3 = entry3.get()
     arg4 = entry4.get()
     arg5 = entry5.get()
-    subprocess.run(['python', 'test_backend.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5])
-
+    subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5])
 
 root = tk.Tk()
 root.title("CARLA User Interface")
@@ -55,7 +57,7 @@ entry4.grid(row=3, column=1, padx=5, pady=5)
 
 label5 = tk.Label(root, text="Map:")
 label5.grid(row=4, column=0, padx=5, pady=5)
-entry5 = tk.Entry(root)
+entry5 = ttk.Combobox(root, values=available_maps)
 entry5.grid(row=4, column=1, padx=5, pady=5)
 
 # Create 'Run' button
