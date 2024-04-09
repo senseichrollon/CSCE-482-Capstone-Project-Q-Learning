@@ -274,6 +274,8 @@ class Environment:
             self.spawn_point = random.choice(spawn_points)
             print(f'spawn index: {spawn_points.index(self.spawn_point)}')
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
+        self.vehicle.set_autopilot(False)
+        self.vehicle.apply_control(carla.VehicleControl(manual_gear_shift=True, gear=1))
 
         # Attach the camera sensor
         camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4)) #camera offset relative to cars origin, 
@@ -311,48 +313,48 @@ class Environment:
         self.episode = num_ep
         self.reward_number = reward_num
         
-        # vehicle control
-        control = self.vehicle.get_control()
+        # # vehicle control
+        # control = self.vehicle.get_control()
         
-        # throttle bar
-        throttle_bar_length = int(100 * control.throttle)  
-        throttle_bar_x = 80
-        throttle_bar_y = 150
-        # unfilled rectangle
-        cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
-        # throttle fill
-        throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)  
-        cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
+        # # throttle bar
+        # throttle_bar_length = int(100 * control.throttle)  
+        # throttle_bar_x = 80
+        # throttle_bar_y = 150
+        # # unfilled rectangle
+        # cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
+        # # throttle fill
+        # throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)  
+        # cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
         
-        # steer bar
-        steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
-        steer_bar_x = 80
-        steer_bar_y = 170
-        cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
-        # Draw slider for steer value
-        slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
-        slider_y = steer_bar_y 
-        cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
+        # # steer bar
+        # steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
+        # steer_bar_x = 80
+        # steer_bar_y = 170
+        # cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
+        # # Draw slider for steer value
+        # slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
+        # slider_y = steer_bar_y 
+        # cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
         
-        # Calculate the speed (magnitude of velocity)
-        velocity = self.vehicle.get_velocity()
-        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
-        speed = speed ** 0.5
+        # # Calculate the speed (magnitude of velocity)
+        # velocity = self.vehicle.get_velocity()
+        # speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+        # speed = speed ** 0.5
     
-        # display location
-        location = self.vehicle.get_location()
-        formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
+        # # display location
+        # location = self.vehicle.get_location()
+        # formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
 
-        cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
-        cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
-        cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
-        cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
-        cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
-        cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
-        cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
+        # cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
+        # cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
+        # cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
+        # cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
+        # cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
+        # cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
+        # cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
  
-        cv2.imshow("Camera View", image_array_copy)
-        cv2.waitKey(5)
+        # cv2.imshow("Camera View", image_array_copy)
+        # cv2.waitKey(5)
 
     def step(self, action):
         self.throttle, self.steer = action
@@ -604,8 +606,9 @@ class Environment:
         i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
       #  print(f'ifail: {i_fail}')
      #   print(Py)
-        print(done)
-        reward = math.sqrt(dd) + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail)) - abs(self.steer)
+        reward = math.sqrt(dd) + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail)) - 2*abs(self.steer)
+     #   print(reward)
+
     #    print(reward)
         return reward, done   
     def get_vehicle_direction(self):
@@ -821,31 +824,41 @@ if __name__ == '__main__':
     'fov': 90,            # Field of view in degrees
 } 
     
-    spawn_points = [67, 99, 52, 86, 56, 58, 44]
+    spawn_points = [67, 99, 52, 56, 44, 5, 100, 40]
     spawn_point = random.choice(spawn_points)
+    print('Spawn Point:', spawn_point)
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
-    env = Environment( client, car_config, sensor_config, args.reward_function, map, spawn_point)
+    env = Environment( client, car_config, sensor_config, args.reward_function, map, 19)
     
     
     # initialize HUD
     hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
-    if args.operation[0].lower() == 'new':
+    if args.operation[0].lower() == 'new' or args.operation[0].lower() == 'tune':
 
         """
         Initializing hyper-parameters and beginning the training loop
+
+
         """
+
+        if args.operation[0].lower() == 'tune':
+            network.load_state_dict(torch.load(args.save_path[0]))
+            print(network)
+      #      network.eval()
+            target_network = deepcopy(network)
+
         replay_buffer = ReplayBuffer(10000)
-        batch_size = 32
+        batch_size = 64
         gamma = 0.99 
-        epsilon_start = 1.0
+        epsilon_start = .01
         epsilon_end = 0.01
         epsilon_decay = 0.993
         epsilon_decrement = 0.005
-        num_episodes = 500
+        num_episodes = 700
         target_update = 10  # Update target network every 10 episodes
-        max_num_steps = 500
+        max_num_steps = 300
         reward_num = args.reward_function[0]
 
         best_dict_reward = -1e10
@@ -916,7 +929,7 @@ if __name__ == '__main__':
                 camera_image = env.image  # Assumss
                 
                 # Display HUD and camera view
-                camera_image_with_hud = hud.tick(camera_image)
+                # camera_image_with_hud = hud.tick(camera_image)
                 #cv2.imshow("Camera View with HUD", camera_image_with_hud)
                 #cv2.waitKey(1)
                 
@@ -926,7 +939,7 @@ if __name__ == '__main__':
 
             if total_reward > best_dict_reward:
                 print("Saving new best")
-                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+ f's{spawn_point}' + '_best_dqn_network_nn_model.pth')
+                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+  '_best_dqn_network_nn_model.pth')
                 best_dict_reward = total_reward
 
             print(f'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
@@ -937,7 +950,7 @@ if __name__ == '__main__':
 
         
         # Save the model's state dictionary
-        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+ f's{spawn_point}' +'_final_dqn_network_nn_model.pth')
+        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_final_dqn_network_nn_model.pth')
 
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")
