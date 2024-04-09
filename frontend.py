@@ -3,7 +3,7 @@ import subprocess
 from tkinter import ttk
 from googletrans import Translator
 from googletrans import LANGUAGES
-import carla
+#import carla
 
 language_dict = {name: code for code, name in LANGUAGES.items()}
 def translate_labels(root, dest_language):
@@ -18,7 +18,7 @@ def translate_labels(root, dest_language):
             widget.config(text=translated_text)
 
 # available operations
-available_ops = ["New", "Load", "Tune"]
+available_ops = ["New", "Load"]
 
 #reward functions
 available_rewards = ["1", "2", "3", "4"]
@@ -32,7 +32,10 @@ def run_backend():
     arg3 = entry3.get()
     arg4 = entry4.get()
     arg5 = entry5.get()
-    subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5])
+    arg6 = entry3.get()
+    arg7 = entry4.get()
+    arg8 = entry5.get()
+    subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8])
 
 root = tk.Tk()
 root.title("CARLA User Interface")
@@ -66,18 +69,39 @@ label5.grid(row=4, column=0, padx=5, pady=5)
 entry5 = ttk.Combobox(root, values=available_maps)
 entry5.grid(row=4, column=1, padx=5, pady=5)
 
+label6 = tk.Label(root, text="Epsilon Decrement:")
+label6.grid(row=5, column=0, padx=5, pady=5)
+entry6 = tk.Entry(root)
+entry6.insert(0, "0.005") 
+entry6.pack() 
+entry6.grid(row=5, column=1, padx=5, pady=5)
+
+label7 = tk.Label(root, text="Num Episodes:")
+label7.grid(row=6, column=0, padx=5, pady=5)
+entry7 = tk.Entry(root)
+entry7.insert(0, "600") 
+entry7.pack() 
+entry7.grid(row=6, column=1, padx=5, pady=5)
+
+label8 = tk.Label(root, text="Max Num Steps:")
+label8.grid(row=7, column=0, padx=5, pady=5)
+entry8 = tk.Entry(root)
+entry8.insert(0, "300") 
+entry8.pack() 
+entry8.grid(row=7, column=1, padx=5, pady=5)
+
 # Create 'Run' button
 run_button = tk.Button(root, text="Run Backend", command=run_backend)
-run_button.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
+run_button.grid(row=10, column=0, columnspan=2, padx=5, pady=5)
 
 # Create language dropdown menu
 languages = list(LANGUAGES.values())
 language_select_label = tk.Label(root, text="Select Language:")
-language_select_label.grid(row=5, column=0, padx=5, pady=5)
+language_select_label.grid(row=8, column=0, padx=5, pady=5)
 #languages = [ 'fr', 'en', 'sp']  # Add more languages as needed
 language_select = ttk.Combobox(root, values=languages)
 
-language_select.grid(row=5, column=1, padx=5, pady=5)
+language_select.grid(row=8, column=1, padx=5, pady=5)
 
 
 language_select.current(0)  # Set default language
@@ -85,7 +109,7 @@ language = language_select.current(0)  # Set default language
 #root.language = language_select.get()
 # Create 'Translate' button
 translate_button = tk.Button(root, text="Translate", command=lambda:translate_labels(root, language_select.get()))
-translate_button.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+translate_button.grid(row=8, column=0, columnspan=2, padx=5, pady=5)
 
 
 # Start the GUI event loop
