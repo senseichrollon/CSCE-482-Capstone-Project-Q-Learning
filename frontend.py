@@ -18,7 +18,7 @@ def translate_labels(root, dest_language):
             widget.config(text=translated_text)
 
 # available operations
-available_ops = ["New", "Load"]
+available_ops = ["New", "Load", "Tune"]
 
 #reward functions
 available_rewards = ["1", "2", "3", "4"]
@@ -73,21 +73,18 @@ label6 = tk.Label(root, text="Epsilon Decrement:")
 label6.grid(row=5, column=0, padx=5, pady=5)
 entry6 = tk.Entry(root)
 entry6.insert(0, "0.005") 
-entry6.pack() 
 entry6.grid(row=5, column=1, padx=5, pady=5)
 
 label7 = tk.Label(root, text="Num Episodes:")
 label7.grid(row=6, column=0, padx=5, pady=5)
 entry7 = tk.Entry(root)
 entry7.insert(0, "600") 
-entry7.pack() 
 entry7.grid(row=6, column=1, padx=5, pady=5)
 
 label8 = tk.Label(root, text="Max Num Steps:")
 label8.grid(row=7, column=0, padx=5, pady=5)
 entry8 = tk.Entry(root)
 entry8.insert(0, "300") 
-entry8.pack() 
 entry8.grid(row=7, column=1, padx=5, pady=5)
 
 # Create 'Run' button
