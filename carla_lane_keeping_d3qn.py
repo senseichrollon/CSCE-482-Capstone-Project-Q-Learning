@@ -806,17 +806,17 @@ if __name__ == '__main__':
                         nargs='+',
                         help='Specify CARLA map: (Town01, ...  Town07)',
                         required=False)
-    parser.add_argument('--epsilondecrement',
+    parser.add_argument('--epsilon-decrement',
                         type=str,
                         nargs='+',
                         help='Epsilon',
                         required=False)
-    parser.add_argument('--numepisodes',
+    parser.add_argument('--num-episodes',
                         type=str,
                         nargs='+',
                         help='Number of episodes for training',
                         required=False)
-    parser.add_argument('--maxsteps',
+    parser.add_argument('--max-steps',
                         type=str,
                         nargs='+',
                         help='Maximum number of steps per episode',
@@ -870,12 +870,20 @@ if __name__ == '__main__':
         epsilon_start = 1
         epsilon_end = 0.01
         epsilon_decay = 0.993
-        epsilon_decrement = float(args.epsilondecrement[0])
-        num_episodes = int(args.numepisodes[0])
-        target_update = 10  # Update target network every 10 episodes
-        max_num_steps = int(args.numsteps[0])
-        
+        epsilon_decrement= 0.005
+        num_episodes = 600
+        max_num_steps= 300
+        if args.epsilon_decrement:
+            epsilon_decrement = float(args.epsilon_decrement[0]) #default value 0.005
+        if args.num_episodes:
+            num_episodes = int(args.num_episodes[0]) #default 600
+        if args.num_steps:
+            max_num_steps = int(args.num_steps[0])   #default 300
+
         reward_num = args.reward_function[0]
+
+
+        target_update = 10  # Update target network every 10 episodes
 
         best_dict_reward = -1e10
 
