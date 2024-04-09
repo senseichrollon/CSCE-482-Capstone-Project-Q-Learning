@@ -3,7 +3,12 @@ import subprocess
 from tkinter import ttk
 from googletrans import Translator
 from googletrans import LANGUAGES
+from carla_lane_keeping_d3qn import update_plot
 #import carla
+
+# Global variables to store rewards and num_steps
+rewards = []
+num_steps = []
 
 language_dict = {name: code for code, name in LANGUAGES.items()}
 def translate_labels(root, dest_language):
@@ -25,6 +30,9 @@ available_rewards = ["1", "2", "3", "4"]
 
 # available maps
 available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
+
+def show_plot():
+    update_plot(rewards, num_steps)
             
 def run_backend():
     arg1 = entry1.get()
@@ -106,7 +114,10 @@ language = language_select.current(0)  # Set default language
 #root.language = language_select.get()
 # Create 'Translate' button
 translate_button = tk.Button(root, text="Translate", command=lambda:translate_labels(root, language_select.get()))
-translate_button.grid(row=9, column=0, columnspan=2, padx=5, pady=5)
+translate_button.grid(row=9, column=0, columnspan=2, padx=(20,50), pady=5)
+
+plot_button = tk.Button(root, text="Show Plot", command=show_plot)
+plot_button.grid(row=9, column=1, columnspan=2, padx=(50,20), pady=5)
 
 
 # Start the GUI event loop

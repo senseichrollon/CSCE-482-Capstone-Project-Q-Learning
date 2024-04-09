@@ -774,6 +774,28 @@ def optimize_model(memory, batch_size, gamma):
     optimizer.zero_grad()
     loss_q.backward()
     optimizer.step()
+    
+def update_plot(rewards, num_steps):
+    plt.clf()
+    
+    # create plots
+    plt.subplot(2, 1, 1)
+    plt.plot(np.arange(0, len(rewards)), rewards)
+    plt.xlabel('Training Episodes')
+    plt.ylabel('Average Reward per Episode')
+    plt.title('Average Reward')
+
+    # Plot the number of steps per episode
+    plt.subplot(2, 1, 2)
+    plt.plot(np.arange(0, len(num_steps)), num_steps)
+    plt.xlabel('Training Episodes')
+    plt.ylabel('Number of Steps per Episode')
+    plt.title('Steps per Episode')
+
+    # Adjust layout and display the plot
+    plt.tight_layout()
+    plt.show()
+    
 
 if __name__ == '__main__':
 
@@ -979,6 +1001,9 @@ if __name__ == '__main__':
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")
         print(f"num_steps = {num_steps}")
+        
+        # update plot for frontend
+        update_plot(rewards, num_steps)
      #   display.render()
         plt.show()
         # Create a line graph
