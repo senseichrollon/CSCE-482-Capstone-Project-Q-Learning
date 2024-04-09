@@ -106,7 +106,7 @@ language = language_select.current(0)  # Set default language
 #root.language = language_select.get()
 # Create 'Translate' button
 translate_button = tk.Button(root, text="Translate", command=lambda:translate_labels(root, language_select.get()))
-translate_button.grid(row=8, column=0, columnspan=2, padx=5, pady=5)
+translate_button.grid(row=9, column=0, columnspan=2, padx=5, pady=5)
 
 
 # Start the GUI event loop
