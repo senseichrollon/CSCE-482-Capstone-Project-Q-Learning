@@ -852,11 +852,11 @@ if __name__ == '__main__':
         replay_buffer = ReplayBuffer(10000)
         batch_size = 64
         gamma = 0.99 
-        epsilon_start = .01
+        epsilon_start = 1
         epsilon_end = 0.01
         epsilon_decay = 0.993
         epsilon_decrement = 0.005
-        num_episodes = 700
+        num_episodes = 600
         target_update = 10  # Update target network every 10 episodes
         max_num_steps = 300
         reward_num = args.reward_function[0]
