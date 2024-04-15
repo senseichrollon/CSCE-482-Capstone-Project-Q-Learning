@@ -15,8 +15,6 @@ import sys
 from PIL import Image
 
 
-
-
 """
 Global Variable List
 """
@@ -32,14 +30,13 @@ NUM_ACTIONS = 45
 
 
 # Carla Client attribute
-client = carla.Client('localhost', 2000)
+client = carla.Client("localhost", 2000)
 client.set_timeout(5.0)  # Set a timeout in seconds for client connection
-print("Client established") 
-
+print("Client established")
 
 
 class DuelingDDQN(nn.Module):
-    def __init__(self, action_dim, image_dim=(480,640)):
+    def __init__(self, action_dim, image_dim=(480, 640)):
         super(DuelingDDQN, self).__init__()
         # Convolutional and pooling layers
         self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
@@ -89,9 +86,9 @@ class DuelingDDQN(nn.Module):
         advantage = self.advantage_stream(x)
 
         # Combine to get Q-values
-       
+
         q_values = value + advantage - advantage.mean(dim=1, keepdim=True)
-  #      print(f'Shapes of network, Value{value.shape}, advantage{advantage.shape}, q_values{q_values.shape}')
+        #      print(f'Shapes of network, Value{value.shape}, advantage{advantage.shape}, q_values{q_values.shape}')
         return q_values
 
 
@@ -100,21 +97,23 @@ network = DuelingDDQN(NUM_ACTIONS).to(device)
 target_network = deepcopy(network)
 
 optimizer = torch.optim.Adam(network.parameters(), lr=1e-5)
-loss_fn = nn.SmoothL1Loss() # huber loss
+loss_fn = nn.SmoothL1Loss()  # huber loss
+
 
 class ReplayBuffer:
     def __init__(self, capacity):
         self.buffer = deque(maxlen=capacity)
-    
+
     def store(self, experience):
         self.buffer.append(experience)
-    
+
     def sample(self, batch_size):
         return random.sample(self.buffer, batch_size)
-    
+
     def size(self):
         return len(self.buffer)
-    
+
+
 class HUD:
     def __init__(self, width, height):
         self.dim = (width, height)
@@ -127,14 +126,14 @@ class HUD:
         self.speed = 0
         self.throttle = 0
         self.steer = 0
-        self.heading = ''
-        self.location = ''
+        self.heading = ""
+        self.location = ""
         self.collision = []
         self.nearby_vehicles = []
-        
-    
-    
-    def update(self, speed, throttle, steer, heading, location, collision, nearby_vehicles):
+
+    def update(
+        self, speed, throttle, steer, heading, location, collision, nearby_vehicles
+    ):
         self.speed = speed
         self.throttle = throttle
         self.steer = steer
@@ -142,41 +141,119 @@ class HUD:
         self.location = location
         self.collision = collision
         self.nearby_vehicles = nearby_vehicles
-        
+
     def tick(self, camera_image):
-        
         # Create a blank HUD image
         hud_image = np.zeros((self.dim[1], self.dim[0], 3), dtype=np.uint8)
 
         # Add HUD elements
-        cv2.putText(hud_image, f'Speed: {self.speed:.2f} m/s', (10, 40), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, f'Throttle: {self.throttle:.2f}', (10, 60), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, f'Steer: {self.steer:.2f}', (10, 80), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, f'Heading: {self.heading}', (10, 100), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, f'Location: {self.location}', (10, 120), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, 'Collision:', (10, 140), self.font, self.font_scale, self.font_color, 1)
+        cv2.putText(
+            hud_image,
+            f"Speed: {self.speed:.2f} m/s",
+            (10, 40),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
+        cv2.putText(
+            hud_image,
+            f"Throttle: {self.throttle:.2f}",
+            (10, 60),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
+        cv2.putText(
+            hud_image,
+            f"Steer: {self.steer:.2f}",
+            (10, 80),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
+        cv2.putText(
+            hud_image,
+            f"Heading: {self.heading}",
+            (10, 100),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
+        cv2.putText(
+            hud_image,
+            f"Location: {self.location}",
+            (10, 120),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
+        cv2.putText(
+            hud_image,
+            "Collision:",
+            (10, 140),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
         for i, value in enumerate(self.collision):
-            cv2.putText(hud_image, f'{i}: {value:.2f}', (10, 160 + i * 20), self.font, self.font_scale, self.font_color, 1)
-        cv2.putText(hud_image, f'Nearby vehicles:', (10, 160 + len(self.collision) * 20), self.font, self.font_scale, self.font_color, 1)
+            cv2.putText(
+                hud_image,
+                f"{i}: {value:.2f}",
+                (10, 160 + i * 20),
+                self.font,
+                self.font_scale,
+                self.font_color,
+                1,
+            )
+        cv2.putText(
+            hud_image,
+            f"Nearby vehicles:",
+            (10, 160 + len(self.collision) * 20),
+            self.font,
+            self.font_scale,
+            self.font_color,
+            1,
+        )
         for i, vehicle in enumerate(self.nearby_vehicles):
-            cv2.putText(hud_image, f'{i}: {vehicle}', (10, 180 + (len(self.collision) + i) * 20), self.font, self.font_scale, self.font_color, 1)
+            cv2.putText(
+                hud_image,
+                f"{i}: {vehicle}",
+                (10, 180 + (len(self.collision) + i) * 20),
+                self.font,
+                self.font_scale,
+                self.font_color,
+                1,
+            )
 
         # Overlay HUD image onto camera image
         camera_image_with_hud = cv2.addWeighted(camera_image, 1, hud_image, 0.5, 0)
-        
+
         return camera_image_with_hud
 
-        
+
 class Environment:
-    def __init__(self, carla_client, car_config, sensor_config, reward_function, map=0, spawn_index=None):
-        
-        #Connecting to Carla Client
+    def __init__(
+        self,
+        carla_client,
+        car_config,
+        sensor_config,
+        reward_function,
+        map=0,
+        spawn_index=None,
+    ):
+        # Connecting to Carla Client
         self.client = carla_client
         self.world = self.client.get_world()
 
         # if loading specifc map
-        if (map != 0):
-            self.world= self.client.load_world(map)
+        if map != 0:
+            self.world = self.client.load_world(map)
         """ This portion can be moved to env.reset
          #delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
@@ -191,12 +268,16 @@ class Environment:
         self.sensor_config = sensor_config
         self.rf = int(reward_function[0])
         self.blueprint_library = self.world.get_blueprint_library()
-        self.vehicle_bps = [bp for bp in self.blueprint_library.filter('vehicle') if bp.has_attribute('number_of_wheels')]
+        self.vehicle_bps = [
+            bp
+            for bp in self.blueprint_library.filter("vehicle")
+            if bp.has_attribute("number_of_wheels")
+        ]
         self.vehicle_bp = self.vehicle_bps[0]
-        self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
-        self.camera_bp.set_attribute('image_size_x', str(sensor_config['image_size_x']))
-        self.camera_bp.set_attribute('image_size_y', str(sensor_config['image_size_y']))    
-        self.camera_bp.set_attribute('fov', str(sensor_config['fov']))
+        self.camera_bp = self.blueprint_library.find("sensor.camera.rgb")
+        self.camera_bp.set_attribute("image_size_x", str(sensor_config["image_size_x"]))
+        self.camera_bp.set_attribute("image_size_y", str(sensor_config["image_size_y"]))
+        self.camera_bp.set_attribute("fov", str(sensor_config["fov"]))
 
         """ This portion can be moved to env.reset
         camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
@@ -214,29 +295,33 @@ class Environment:
         """
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
         throttle_range = np.linspace(0, 0.5, 5)
-        steer_range = np.linspace(-.25, .25, 9)
+        steer_range = np.linspace(-0.25, 0.25, 9)
         print(steer_range)
-        self.action_space = np.array(np.meshgrid(throttle_range, steer_range)).T.reshape(-1, 2)
+        self.action_space = np.array(
+            np.meshgrid(throttle_range, steer_range)
+        ).T.reshape(-1, 2)
         self.spawn_point = None
         if spawn_index is not None:
             self.spawn_point = self.world.get_map().get_spawn_points()[spawn_index]
-        
-        #self.camera.listen(lambda data: self.process_image(data))
-        
+
+        # self.camera.listen(lambda data: self.process_image(data))
+
         # Initialize HUD
-        self.hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
+        self.hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
+
     def on_collision(self, event):
         self.collision_detected = True
 
-    def reset(self):   # reset is to reset world?
+    def reset(self):  # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
-        #delete what we created, eg. vehicles and sensors
+        # delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
 
         # Identify IDs of vehicles and sensors to be deleted
         vehicle_and_sensor_ids = [
-            actor.id for actor in actor_list
-            if 'vehicle' in actor.type_id or 'sensor' in actor.type_id
+            actor.id
+            for actor in actor_list
+            if "vehicle" in actor.type_id or "sensor" in actor.type_id
         ]
 
         # Iterate over the list of IDs to delete each actor
@@ -246,7 +331,9 @@ class Environment:
             if actor_to_delete is not None:
                 # If the actor exists, delete it
                 actor_to_delete.destroy()
-                print("Deleted:", actor_to_delete.type_id, "with ID:", actor_to_delete.id)
+                print(
+                    "Deleted:", actor_to_delete.type_id, "with ID:", actor_to_delete.id
+                )
             else:
                 # If the actor doesn't exist, print a message (optional)
                 print("Actor with ID", actor_id, "not found.")
@@ -254,24 +341,31 @@ class Environment:
         if self.spawn_point is None:
             spawn_points = self.world.get_map().get_spawn_points()
             self.spawn_point = random.choice(spawn_points)
-            print(f'spawn index: {spawn_points.index(self.spawn_point)}')
+            print(f"spawn index: {spawn_points.index(self.spawn_point)}")
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, self.spawn_point)
         self.vehicle.set_autopilot(False)
         self.vehicle.apply_control(carla.VehicleControl(manual_gear_shift=True, gear=1))
 
         # Attach the camera sensor
-        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4)) #camera offset relative to cars origin, 
+        camera_transform = carla.Transform(
+            carla.Location(x=1.5, z=2.4)
+        )  # camera offset relative to cars origin,
         # changeable, depending where the camera actually is
-        self.camera = self.world.spawn_actor(self.camera_bp, camera_transform, attach_to=self.vehicle)
-        self.camera.listen(lambda data: self.process_image(data
-                                                           ))
-        collision_bp = self.blueprint_library.find('sensor.other.collision')
-        self.collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.vehicle)
+        self.camera = self.world.spawn_actor(
+            self.camera_bp, camera_transform, attach_to=self.vehicle
+        )
+        self.camera.listen(lambda data: self.process_image(data))
+        collision_bp = self.blueprint_library.find("sensor.other.collision")
+        self.collision_sensor = self.world.spawn_actor(
+            collision_bp, carla.Transform(), attach_to=self.vehicle
+        )
         self.collision_detected = False
         self.collision_sensor.listen(lambda event: self.on_collision(event))
 
         self.distance = 0
-        self.prev_xy = np.array([self.vehicle.get_location().x, self.vehicle.get_location().y])
+        self.prev_xy = np.array(
+            [self.vehicle.get_location().x, self.vehicle.get_location().y]
+        )
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         # waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
@@ -284,30 +378,32 @@ class Environment:
 
     def process_image(self, image):
         i = np.array(image.raw_data)
-        i2 = i.reshape((self.sensor_config['image_size_y'], self.sensor_config['image_size_x'], 4))
+        i2 = i.reshape(
+            (self.sensor_config["image_size_y"], self.sensor_config["image_size_x"], 4)
+        )
         self.image = i2[:, :, :3]
         image_array_copy = self.image.copy()
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.font_scale = 0.5
         self.font_color = (255, 255, 255)
-        elapsed_since_last_iteration = time.time()- start_time
+        elapsed_since_last_iteration = time.time() - start_time
         self.time = elapsed_since_last_iteration
         self.episode = num_ep
         self.reward_number = reward_num
-        
+
         # # vehicle control
         # control = self.vehicle.get_control()
-        
+
         # # throttle bar
-        # throttle_bar_length = int(100 * control.throttle)  
+        # throttle_bar_length = int(100 * control.throttle)
         # throttle_bar_x = 80
         # throttle_bar_y = 150
         # # unfilled rectangle
         # cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
         # # throttle fill
-        # throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)  
+        # throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)
         # cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
-        
+
         # # steer bar
         # steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
         # steer_bar_x = 80
@@ -315,14 +411,14 @@ class Environment:
         # cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
         # # Draw slider for steer value
         # slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
-        # slider_y = steer_bar_y 
+        # slider_y = steer_bar_y
         # cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
-        
+
         # # Calculate the speed (magnitude of velocity)
         # velocity = self.vehicle.get_velocity()
         # speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
         # speed = speed ** 0.5
-    
+
         # # display location
         # location = self.vehicle.get_location()
         # formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
@@ -334,14 +430,16 @@ class Environment:
         # cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
         # cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
         # cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
- 
+
         # cv2.imshow("Camera View", image_array_copy)
         # cv2.waitKey(5)
 
     def step(self, action):
         self.throttle, self.steer = action
-      #  print(self.action_space)
-        self.vehicle.apply_control(carla.VehicleControl(throttle=self.throttle, steer=self.steer))
+        #  print(self.action_space)
+        self.vehicle.apply_control(
+            carla.VehicleControl(throttle=self.throttle, steer=self.steer)
+        )
 
         self.world.tick()
 
@@ -351,7 +449,7 @@ class Environment:
         dd = np.linalg.norm(current_xy - self.prev_xy)
         self.distance += dd
 
-
+        info = {}
         # Calculate reward based on the chosen reward function
         if self.rf == 1:
             reward, done = self.reward_1()
@@ -360,9 +458,11 @@ class Environment:
         elif self.rf == 3:
             reward, done = self.reward_3()
         elif self.rf == 4:
-            reward, done = self.reward_4()
+            reward, done, theta, Py = self.reward_4()
+            info["angle"] = math.cos(theta)
+            info["lane_deviation"] = Py
+            info["collision"] = 1 if self.collision_detected else 0
 
-        info = {}  
         self.prev_xy = current_xy
         return self.image, reward, done, info
 
@@ -374,14 +474,16 @@ class Environment:
         - Penalize for not being centered on the road.
         - Penalize heavily if the vehicle is going in the opposite direction of the road.
         """
-        
+
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
 
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
-        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
+            2 * np.pi
+        ) - np.pi
 
         # Maximal rotation (yaw angle) allowed
         maximal_rotation = np.pi / 10
@@ -389,19 +491,23 @@ class Environment:
 
         # Getting the vehicle's lane information
         map = self.world.get_map()
-        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
 
         # Calculate the heading difference between the vehicle and the road
         road_direction = waypoint.transform.rotation.yaw
         road_direction_radians = math.radians(road_direction)
-        heading_difference = abs(vehicle_rotation_radians - road_direction_radians) % (2 * np.pi)
+        heading_difference = abs(vehicle_rotation_radians - road_direction_radians) % (
+            2 * np.pi
+        )
         if heading_difference > np.pi:
             heading_difference = 2 * np.pi - heading_difference
-        
+
         # Heavily penalize if the vehicle is going in the opposite direction (more than 90 degrees away from road direction)
         going_opposite_direction = heading_difference > np.pi / 2
 
-        road_half_width = waypoint.lane_width / 2.
+        road_half_width = waypoint.lane_width / 2.0
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
@@ -418,23 +524,25 @@ class Environment:
             done = True
             reward = -1000
         elif done:
-            reward = -100 if not_near_center else -500  # More severe penalty for going in the opposite direction
+            reward = (
+                -100 if not_near_center else -500
+            )  # More severe penalty for going in the opposite direction
         elif exceed_max_rotation:
             reward = -50
         else:
             # Calculate distance moved towards the driving direction since last tick
             dd = np.linalg.norm(current_xy - self.prev_xy)
-            reward = dd * 50  # Assuming the simulation has a tick rate where this scaling makes sense
-        
-        reward += (np.pi/2 - heading_difference) * -100
+            reward = (
+                dd * 50
+            )  # Assuming the simulation has a tick rate where this scaling makes sense
+
+        reward += (np.pi / 2 - heading_difference) * -100
 
         self.prev_xy = current_xy
         self.collision_detected = False
         return reward, done
 
-
     def reward_2(self):
-
         """
         Reward function that does not account for max rotation exceeded
         """
@@ -443,8 +551,10 @@ class Environment:
 
         # Getting the vehicle's lane information
         map = self.world.get_map()
-        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
-        road_half_width = waypoint.lane_width / 2.
+        waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
+        road_half_width = waypoint.lane_width / 2.0
 
         # Calculate the distance from the center of the lane+
         center_of_lane = waypoint.transform.location
@@ -476,20 +586,21 @@ class Environment:
         return reward, done
 
     def reward_3(self):
-        reward=0
-        done=False
+        reward = 0
+        done = False
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
         map = self.world.get_map()
-        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
-
-
+        waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
 
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
-        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
-
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
+            2 * np.pi
+        ) - np.pi
 
         road_direction = waypoint.transform.rotation.yaw
         road_direction_radians = math.radians(road_direction)
@@ -498,7 +609,7 @@ class Environment:
             theta = 2 * np.pi - theta
         going_opposite_direction = theta > np.pi / 2
 
-        road_half_width = waypoint.lane_width / 2.
+        road_half_width = waypoint.lane_width / 2.0
 
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
@@ -509,22 +620,27 @@ class Environment:
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         dd = np.linalg.norm(current_xy - self.prev_xy)
         Py = distance_from_center
-        Wd = waypoint.lane_width/2.5
+        Wd = waypoint.lane_width / 2.5
         i_fail = 1 if done else 0
-        reward = dd + 2*math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
+        reward = dd + 2 * math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
         print(reward)
         return reward, done
+
     def reward_4(self):
-        reward=0
-        done=False
+        reward = 0
+        done = False
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
         map = self.world.get_map()
-        waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
+        waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
 
         vehicle_rotation_radians = math.radians(vehicle_rotation)
-        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
+            2 * np.pi
+        ) - np.pi
 
         road_direction = waypoint.transform.rotation.yaw
         road_direction_radians = math.radians(road_direction)
@@ -533,7 +649,7 @@ class Environment:
             theta = 2 * np.pi - theta
         going_opposite_direction = theta > np.pi / 2
 
-        road_half_width = waypoint.lane_width / 2.
+        road_half_width = waypoint.lane_width / 2.0
 
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
@@ -545,16 +661,22 @@ class Environment:
         dd = np.linalg.norm(current_xy - self.prev_xy)
 
         Py = distance_from_center
-        Wd = waypoint.lane_width/2.5
+        Wd = waypoint.lane_width / 2.5
         i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
-        reward = math.sqrt(dd) + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail)) - 2*abs(self.steer)
-        return reward, done   
+        reward = (
+            math.sqrt(dd)
+            + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail))
+            - 2 * abs(self.steer)
+        )
+
+        return reward, done, theta, abs(Py)
+
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
         rotation = transform.rotation
         radians = math.radians(rotation.yaw)
         return carla.Vector3D(math.cos(radians), math.sin(radians), 0.0)
-    
+
     def get_road_direction(self):
         # This is a simplified example. You'll need to adapt it based on how your road data is structured
         map = self.world.get_map()
@@ -562,75 +684,89 @@ class Environment:
         next_waypoint = waypoint.next(1.0)[0]  # Assuming there's a next waypoint
         direction = next_waypoint.transform.location - waypoint.transform.location
         return direction.make_unit_vector()
-    
+
     def calculate_angle_between_vectors(self, v1, v2):
         dot_product = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
         magnitude_v1 = math.sqrt(v1.x**2 + v1.y**2 + v1.z**2)  # Magnitude of v1
         magnitude_v2 = math.sqrt(v2.x**2 + v2.y**2 + v2.z**2)  # Magnitude of v2
-        
+
         # Ensure the magnitude is not zero to avoid division by zero error
         if magnitude_v1 == 0 or magnitude_v2 == 0:
-            raise ValueError("One or both vectors have zero magnitude, can't calculate angle.")
-        
+            raise ValueError(
+                "One or both vectors have zero magnitude, can't calculate angle."
+            )
+
         # Normalize the dot product by the magnitudes of v1 and v2
         cosine_of_angle = dot_product / (magnitude_v1 * magnitude_v2)
-        
+
         # Clamp the cosine_of_angle to the domain of acos to avoid domain errors
         cosine_of_angle = max(min(cosine_of_angle, 1), -1)
-        
+
         angle = math.acos(cosine_of_angle)  # Angle in radians
-        
+
         return math.degrees(angle)  # Convert the angle to degrees
-    
+
     def get_lateral_position_error_and_lane_width(self):
         # Get the vehicle's location
         vehicle_location = self.vehicle.get_location()
         map = self.world.get_map()
-        
+
         # Get the closest waypoint to the vehicle's location
-        closest_waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
-        
+        closest_waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
+
         # Calculate the lateral position error
         # This is a simple approximation. For more accuracy, consider the direction of the road
-        lateral_position_error = vehicle_location.distance(closest_waypoint.transform.location) - closest_waypoint.lane_width / 2
-        
+        lateral_position_error = (
+            vehicle_location.distance(closest_waypoint.transform.location)
+            - closest_waypoint.lane_width / 2
+        )
+
         # Get the lane width
         lane_width = closest_waypoint.lane_width
-        
+
         return lateral_position_error, lane_width
-    
+
     def is_vehicle_within_lane(self):
         # Get the vehicle's location
         map = self.world.get_map()
         vehicle_location = self.vehicle.get_location()
-        
+
         # Get the closest waypoint to the vehicle's location, considering only driving lanes
-        closest_waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
-        
+        closest_waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
+
         # Get the transform of the closest waypoint
         waypoint_transform = closest_waypoint.transform
-        
+
         # Calculate the vector from the waypoint to the vehicle
         vehicle_vector = vehicle_location - waypoint_transform.location
-        vehicle_vector = carla.Vector3D(vehicle_vector.x, vehicle_vector.y, 0)  # Ignore Z component
-        
+        vehicle_vector = carla.Vector3D(
+            vehicle_vector.x, vehicle_vector.y, 0
+        )  # Ignore Z component
+
         # Calculate the forward vector of the waypoint (direction the lane is facing)
         waypoint_forward_vector = waypoint_transform.get_forward_vector()
-        waypoint_forward_vector = carla.Vector3D(waypoint_forward_vector.x, waypoint_forward_vector.y, 0)  # Ignore Z component
-        
+        waypoint_forward_vector = carla.Vector3D(
+            waypoint_forward_vector.x, waypoint_forward_vector.y, 0
+        )  # Ignore Z component
+
         # Calculate the right vector of the waypoint (perpendicular to the forward vector)
-        waypoint_right_vector = carla.Vector3D(-waypoint_forward_vector.y, waypoint_forward_vector.x, 0)
-        
+        waypoint_right_vector = carla.Vector3D(
+            -waypoint_forward_vector.y, waypoint_forward_vector.x, 0
+        )
+
         # Project the vehicle vector onto the waypoint right vector to get the lateral distance from the lane center
         lateral_distance = vehicle_vector.dot(waypoint_right_vector)
-        
+
         # Check if the absolute value of lateral_distance is less than or equal to half the lane width
         is_within_lane = abs(lateral_distance) <= (closest_waypoint.lane_width / 2)
-        
+
         return is_within_lane
 
     def epsilon_greedy_action(self, state, epsilon):
-    
         # print(f"\tstate.shape = {state.shape}")
         state = state.permute(0, 3, 1, 2)
         prob = np.random.uniform()
@@ -643,13 +779,16 @@ class Environment:
             return self.action_space[self.action_idx]
 
 
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
+Transition = namedtuple(
+    "Transition", ("state", "action", "reward", "next_state", "done")
+)
+
 
 def optimize_model(memory, batch_size, gamma):
     # print("__FUNCTION__optimize_model()")
     if memory.size() < batch_size:
         return
-    
+
     transitions = memory.sample(batch_size)
     batch = Transition(*zip(*transitions))
 
@@ -658,10 +797,12 @@ def optimize_model(memory, batch_size, gamma):
     # action_batch = torch.cat([a for a in batch.action]).to(device)
     action_batch = torch.cat([torch.tensor([a]).to(device) for a in batch.action])
     reward_batch = torch.cat([torch.tensor([r]).to(device) for r in batch.reward])
-    next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(device)
+    next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(
+        device
+    )
     done_batch = torch.cat([torch.tensor([d]).to(device) for d in batch.done])
     # non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool).to(device)
-    
+
     # print(f"\tstate_batch.shape = {state_batch.shape}")
     state_batch = state_batch.permute(0, 3, 1, 2)
     next_state_batch = next_state_batch.permute(0, 3, 1, 2)
@@ -676,7 +817,9 @@ def optimize_model(memory, batch_size, gamma):
     # print(f"\tcurrent_q.shape = {current_q.shape}")
     # print(f"\taction_batch.unsqueeze(1).shape = {action_batch.unsqueeze(1).shape}")
     # print(f"\taction_batch.unsqueeze(1).long().shape = {action_batch.unsqueeze(1).long().shape}")
-    current_q = torch.gather(current_q, dim=1, index=action_batch.unsqueeze(1).long()).squeeze(-1)
+    current_q = torch.gather(
+        current_q, dim=1, index=action_batch.unsqueeze(1).long()
+    ).squeeze(-1)
     # print(f"\tcurrent_q.shape = {current_q.shape}")
     # print(f"\tcurrent_q = {current_q}")
 
@@ -691,7 +834,7 @@ def optimize_model(memory, batch_size, gamma):
             reward = reward_batch[idx]
             next_state = next_state_batch[idx].unsqueeze(0)
             done = done_batch[idx]
-            if (done):
+            if done:
                 target_q[idx] = reward
                 # print(f"\t\t\treward = {reward}")
             else:
@@ -712,136 +855,139 @@ def optimize_model(memory, batch_size, gamma):
     optimizer.zero_grad()
     loss_q.backward()
     optimizer.step()
-    
+
+
 def update_plot(rewards, num_steps):
     plt.clf()
-    
+
     # create plots
     plt.subplot(2, 1, 1)
     plt.plot(np.arange(0, len(rewards)), rewards)
-    plt.xlabel('Training Episodes')
-    plt.ylabel('Average Reward per Episode')
-    plt.title('Average Reward')
+    plt.xlabel("Training Episodes")
+    plt.ylabel("Average Reward per Episode")
+    plt.title("Average Reward")
 
     # Plot the number of steps per episode
     plt.subplot(2, 1, 2)
     plt.plot(np.arange(0, len(num_steps)), num_steps)
-    plt.xlabel('Training Episodes')
-    plt.ylabel('Number of Steps per Episode')
-    plt.title('Steps per Episode')
+    plt.xlabel("Training Episodes")
+    plt.ylabel("Number of Steps per Episode")
+    plt.title("Steps per Episode")
 
     # Adjust layout and display the plot
     plt.tight_layout()
     plt.show()
-    
 
-if __name__ == '__main__':
 
-    print ("Running Main")
+if __name__ == "__main__":
+    print("Running Main")
     parser = argparse.ArgumentParser(
-        description='Run the simulator with random actions')
-    parser.add_argument('--version',
-                        type=str,
-                        nargs='+',
-                        help='version number for model naming',
-                        required=False)
-    parser.add_argument('--operation',
-                        type=str,
-                        nargs='+',
-                        help='Load or New',
-                        required=True)
-    parser.add_argument('--save-path',
-                        type=str,
-                        nargs='+',
-                        help='Path to the saved model state',
-                        required=False)
-    #reward function
-    parser.add_argument('--reward-function',
-                        type=str,
-                        nargs='+',
-                        help='1 or 2 or 3',
-                        required=True)
-    parser.add_argument('--map',
-                        type=str,
-                        nargs='+',
-                        help='Specify CARLA map: (Town01, ...  Town07)',
-                        required=False)
-    parser.add_argument('--epsilon-decrement',
-                        type=str,
-                        nargs='+',
-                        help='Epsilon',
-                        required=False)
-    parser.add_argument('--num-episodes',
-                        type=str,
-                        nargs='+',
-                        help='Number of episodes for training',
-                        required=False)
-    parser.add_argument('--max-steps',
-                        type=str,
-                        nargs='+',
-                        help='Maximum number of steps per episode',
-                        required=False)
-    args = parser.parse_args()      
-
+        description="Run the simulator with random actions"
+    )
+    parser.add_argument(
+        "--version",
+        type=str,
+        nargs="+",
+        help="version number for model naming",
+        required=False,
+    )
+    parser.add_argument(
+        "--operation", type=str, nargs="+", help="Load or New or Tune", required=True
+    )
+    parser.add_argument(
+        "--save-path",
+        type=str,
+        nargs="+",
+        help="Path to the saved model state",
+        required=False,
+    )
+    # reward function
+    parser.add_argument(
+        "--reward-function",
+        type=str,
+        nargs="+",
+        help="1 or 2 or 3 or 4 or",
+        required=True,
+    )
+    parser.add_argument(
+        "--map",
+        type=str,
+        nargs="+",
+        help="Specify CARLA map: (Town01, ...  Town07)",
+        required=False,
+    )
+    parser.add_argument(
+        "--epsilon-decrement", type=str, nargs="+", help="Epsilon", required=False
+    )
+    parser.add_argument(
+        "--num-episodes",
+        type=str,
+        nargs="+",
+        help="Number of episodes for training",
+        required=False,
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=str,
+        nargs="+",
+        help="Maximum number of steps per episode",
+        required=False,
+    )
+    args = parser.parse_args()
 
     if not args.operation:
-        print ("Operation argument is required")
-        raise ValueError("Operation argument is required. Use '--operation Load' or '--operation New'.")
-
+        print("Operation argument is required")
+        raise ValueError(
+            "Operation argument is required. Use '--operation Load' or '--operation New'."
+        )
 
     # configuring environment
-    car_config=0 #likely not needed
+    car_config = 0  # likely not needed
 
-    sensor_config = { #default sensor configuration
-        
-    'image_size_x': 640,  # Width of the image in pixels
-    'image_size_y': 480,  # Height of the image in pixels
-    'fov': 90,            # Field of view in degrees
-} 
-    
+    sensor_config = {  # default sensor configuration
+        "image_size_x": 640,  # Width of the image in pixels
+        "image_size_y": 480,  # Height of the image in pixels
+        "fov": 90,  # Field of view in degrees
+    }
+
     spawn_points = [67, 99, 52, 56, 44, 5, 100, 40]
     spawn_point = random.choice(spawn_points)
-    print('Spawn Point:', spawn_point)
-    map = 0 # default map
-    if args.map: #specifed map is chosen
+    print("Spawn Point:", spawn_point)
+    map = 0  # default map
+    if args.map:  # specifed map is chosen
         map = args.map[0]
-    env = Environment( client, car_config, sensor_config, args.reward_function, map, 5)
-    
-    
-    # initialize HUD
-    hud = HUD(sensor_config['image_size_x'], sensor_config['image_size_y'])
-    if args.operation[0].lower() == 'new' or args.operation[0].lower() == 'tune':
+    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19)
 
+    # initialize HUD
+    hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
+    if args.operation[0].lower() == "new" or args.operation[0].lower() == "tune":
         """
         Initializing hyper-parameters and beginning the training loop
 
 
         """
 
-        if args.operation[0].lower() == 'tune':
+        if args.operation[0].lower() == "tune":
             network.load_state_dict(torch.load(args.save_path[0]))
-            print(network)
-      #      network.eval()
             target_network = deepcopy(network)
 
         replay_buffer = ReplayBuffer(10000)
         batch_size = 64
-        gamma = 0.99 
+        gamma = 0.99
         epsilon_start = 1
         epsilon_end = 0.01
         epsilon_decay = 0.993
-        epsilon_decrement= 0.005
+        epsilon_decrement = 0.005
         num_episodes = 600
-        max_num_steps= 300
+        max_num_steps = 300
         if args.epsilon_decrement:
-            epsilon_decrement = float(args.epsilon_decrement[0]) #default value 0.005
+            epsilon_decrement = float(args.epsilon_decrement[0])  # default value 0.005
         if args.num_episodes:
-            num_episodes = int(args.num_episodes[0]) #default 600
+            num_episodes = int(args.num_episodes[0])  # default 600
         if args.max_steps:
-            max_num_steps = int(args.max_steps[0])   #default 300
+            max_num_steps = int(args.max_steps[0])  # default 300
 
         reward_num = args.reward_function[0]
-
 
         target_update = 10  # Update target network every 10 episodes
 
@@ -859,11 +1005,10 @@ if __name__ == '__main__':
             state = env.reset()
             elapsed_since_last_iteration = time.time() - start_time
             start_time = time.time()
-            
 
             # print(f"main, state.shape after reset = {state.shape}")
             # print(state)
-       #     display.reset()
+            #     display.reset()
             total_reward = 0
             done = False
             step = 0
@@ -878,18 +1023,15 @@ if __name__ == '__main__':
                 # next_state = next_state
 
                 # Convert next_state to tensor and move to device
-                next_state_tensor = torch.from_numpy(next_state).unsqueeze(0).to(device) if next_state is not None else None
+                next_state_tensor = (
+                    torch.from_numpy(next_state).unsqueeze(0).to(device)
+                    if next_state is not None
+                    else None
+                )
 
-                # Store the transition in the replay buffer
-                # action_tensor = torch.zeros(1, NUM_ACTIONS, dtype=torch.int64)
-                # print(f"action_tensor = {action_tensor}")
-                # print(f"action_tensor.shape = {action_tensor.shape}")
-                # print(f"action = {action}")
-                # print(f"action.shape = {action.shape}")
-                # print(f"env.action_idx = {env.action_idx}")
-                # action_tensor[0][env.action_idx] = 1
-
-                replay_buffer.store((state_tensor, env.action_idx, reward, next_state_tensor, done))
+                replay_buffer.store(
+                    (state_tensor, env.action_idx, reward, next_state_tensor, done)
+                )
 
                 state = next_state
                 total_reward += reward
@@ -901,84 +1043,112 @@ if __name__ == '__main__':
 
                 if step % target_update == 0 or done:
                     target_network.load_state_dict(network.state_dict())
-                     
 
                 step += 1
                 # cv2.imshow(f'Car Agent in Episode {episode}', vis_img[:, :, ::-1])
                 # cv2.waitKey(5)
-                
+
                 # hud.update(env.vehicle.get_velocity().x, throttle, steer)
-                
+
                 # Get camera image
                 camera_image = env.image  # Assumss
-                
+
                 # Display HUD and camera view
                 # camera_image_with_hud = hud.tick(camera_image)
-                #cv2.imshow("Camera View with HUD", camera_image_with_hud)
-                #cv2.waitKey(1)
-                
-            
+                # cv2.imshow("Camera View with HUD", camera_image_with_hud)
+                # cv2.waitKey(1)
+
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
 
             if total_reward > best_dict_reward:
                 print("Saving new best")
-                torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+  '_best_dqn_network_nn_model.pth')
+                torch.save(
+                    target_network.state_dict(),
+                    "saves/v" + args.version[0] + "_best_dqn_network_nn_model.pth",
+                )
                 best_dict_reward = total_reward
 
-            print(f'Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}')
+            print(
+                f"Episode {episode}: Total Reward: {total_reward}, Epsilon: {epsilon}, NumSteps: {step}"
+            )
 
             # Update epsilon
-       #     epsilon = max(epsilon_end, epsilon_decay * epsilon)
+            #     epsilon = max(epsilon_end, epsilon_decay * epsilon)
             epsilon = max(epsilon_end, epsilon - epsilon_decrement)
 
-        
         # Save the model's state dictionary
-        torch.save(target_network.state_dict(), 'saves/v'+args.version[0]+'_final_dqn_network_nn_model.pth')
+        torch.save(
+            target_network.state_dict(),
+            "saves/v" + args.version[0] + "_final_dqn_network_nn_model.pth",
+        )
 
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")
         print(f"num_steps = {num_steps}")
-        
+
         # update plot for frontend
         update_plot(rewards, num_steps)
-     #   display.render()
+        #   display.render()
         plt.show()
         # Create a line graph
         plt.plot(eps, rewards)
 
         # Add labels and a title
-        plt.xlabel('Training Episodes')
-        plt.ylabel('Average Reward per Episode')
-        plt.title('Average Reward')
+        plt.xlabel("Training Episodes")
+        plt.ylabel("Average Reward per Episode")
+        plt.title("Average Reward")
 
         # Display the plot
         plt.show()
 
         plt.plot(eps, num_steps)
-        plt.xlabel('Training Episodes')
-        plt.ylabel('Number of Steps per Episode')
-        plt.title('Steps per Episode')
+        plt.xlabel("Training Episodes")
+        plt.ylabel("Number of Steps per Episode")
+        plt.title("Steps per Episode")
         # Display the plot
         plt.show()
-    elif args.operation[0].lower() == 'load':
+    elif args.operation[0].lower() == "load":
         print(f"Loading model from {args.save_path[0]}")
         network = DuelingDDQN(NUM_ACTIONS).to(device)
         network.load_state_dict(torch.load(args.save_path[0]))
         network.eval()
-
+        num_episodes = int(args.num_episodes[0])
         total_rewards = []
-        for episode in range(50):
+        angles = []
+        lane_deviation = []
+        num_collisions = 0
+        for episode in range(int(args.num_episodes[0])):
             state = env.reset()
             done = False
             total_reward = 0
+            ep_angles = []
+            ep_deviation = []
+            collided = 0
             while not done:
                 state_tensor = torch.from_numpy(state).unsqueeze(0).to(device)
                 action = env.epsilon_greedy_action(state_tensor, 0.1)
                 state, reward, done, info = env.step(action)
+                ep_angles.append(info["angle"])
+                ep_deviation.append(info["lane_deviation"])
+                if collided:
+                    collided = 1
                 total_reward += reward
             total_rewards.append(total_reward)
-            print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+            num_collisions += collided
+            angles.append(np.mean(ep_angles))
+            lane_deviation.append(np.mean(ep_deviation))
+            print(
+                f"Episode {episode + 1}: Total Reward = {total_reward}, Angle deviation = {np.mean(ep_angles)}, Lane deviation = {np.mean(ep_deviation)}, Collided = {collided == 1}"
+            )
 
         average_reward = sum(total_rewards) / len(total_rewards)
-        print(f"Average Reward over {args.episodes} episodes: {average_reward}")
+        average_angle_dev = sum(angles) / len(angles)
+        average_lane_dev = sum(lane_deviation) / len(lane_deviation)
+        print(f"Average Reward over {num_episodes} episodes: {average_reward}")
+        print(
+            f"Average Angle deviation over {num_episodes} episodes: {average_angle_dev}"
+        )
+        print(
+            f"Average lane deviation over {num_episodes} episodes: {average_lane_dev}"
+        )
