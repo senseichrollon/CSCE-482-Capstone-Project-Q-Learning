@@ -228,24 +228,6 @@ class Environment:
     def on_collision(self, event):
         self.collision_detected = True
 
-    # def define_path(self):
-    #     # This is a simplified example. You might want to define a more complex path.
-    #     start_waypoint = self.world.get_map().get_waypoint(self.spawn_point.location)
-    #     end_waypoint = start_waypoint.next(100.0)[0]  # Assuming 100 meters ahead for this example
-    #     self.path = [start_waypoint, end_waypoint]
-    #     # In a real scenario, you'd populate 'self.path' with a series of waypoints forming the desired route.
-    # def is_vehicle_on_path(self):
-    #     vehicle_location = self.vehicle.get_location()
-    #     # Find the closest waypoint to the vehicle on the predefined path
-    #     closest_distance = min([vehicle_location.distance(waypoint.transform.location) for waypoint in self.path])
-    
-    #     # Define a threshold for being off-path. This will need to be adjusted based on your scenario.
-    #     off_path_threshold = 5.0  # meters
-        
-    #     return closest_distance <= off_path_threshold
-
-
-
     def reset(self):   # reset is to reset world?
         # Spawn or respawn the vehicle at a random location
         #delete what we created, eg. vehicles and sensors
@@ -518,7 +500,6 @@ class Environment:
 
         road_half_width = waypoint.lane_width / 2.
 
-        # Calculate the distance from the center of the lane+
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
@@ -527,27 +508,9 @@ class Environment:
 
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         dd = np.linalg.norm(current_xy - self.prev_xy)
-
-        # left_waypoint = waypoint.get_left_lane()
-        # right_waypoint = waypoint.get_right_lane()
-        # Py = 0
-        # if left_waypoint is not None and right_waypoint is not None:
-        #     # Calculate the midpoint between the two waypoints
-        #     midpoint = carla.Location(
-        #         x=(left_waypoint.transform.location.x + right_waypoint.transform.location.x) / 2,
-        #         y=(left_waypoint.transform.location.y + right_waypoint.transform.location.y) / 2,
-        #         z=(left_waypoint.transform.location.z + right_waypoint.transform.location.z) / 2
-        #     )
-
-        #     # Calculate the distance from the vehicle to the midpoint
-        #     Py = vehicle_location.distance(midpoint)
-       # print(f'theta: {math.degrees(theta)}')
         Py = distance_from_center
         Wd = waypoint.lane_width/2.5
-      #  print(f'Py, Wd: {Py}, {Wd}')
         i_fail = 1 if done else 0
-      #  print(f'ifail: {i_fail}')
-     #   print(Py)
         reward = dd + 2*math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
         print(reward)
         return reward, done
@@ -560,12 +523,8 @@ class Environment:
         map = self.world.get_map()
         waypoint = map.get_waypoint(vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving)
 
-
-
-        # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
         vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (2 * np.pi) - np.pi
-
 
         road_direction = waypoint.transform.rotation.yaw
         road_direction_radians = math.radians(road_direction)
@@ -576,7 +535,6 @@ class Environment:
 
         road_half_width = waypoint.lane_width / 2.
 
-        # Calculate the distance from the center of the lane+
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
 
@@ -586,30 +544,10 @@ class Environment:
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         dd = np.linalg.norm(current_xy - self.prev_xy)
 
-        # left_waypoint = waypoint.get_left_lane()
-        # right_waypoint = waypoint.get_right_lane()
-        # Py = 0
-        # if left_waypoint is not None and right_waypoint is not None:
-        #     # Calculate the midpoint between the two waypoints
-        #     midpoint = carla.Location(
-        #         x=(left_waypoint.transform.location.x + right_waypoint.transform.location.x) / 2,
-        #         y=(left_waypoint.transform.location.y + right_waypoint.transform.location.y) / 2,
-        #         z=(left_waypoint.transform.location.z + right_waypoint.transform.location.z) / 2
-        #     )
-
-        #     # Calculate the distance from the vehicle to the midpoint
-        #     Py = vehicle_location.distance(midpoint)
-       # print(f'theta: {math.degrees(theta)}')
         Py = distance_from_center
         Wd = waypoint.lane_width/2.5
-      #  print(f'Py, Wd: {Py}, {Wd}')
         i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
-      #  print(f'ifail: {i_fail}')
-     #   print(Py)
         reward = math.sqrt(dd) + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail)) - 2*abs(self.steer)
-     #   print(reward)
-
-    #    print(reward)
         return reward, done   
     def get_vehicle_direction(self):
         transform = self.vehicle.get_transform()
@@ -867,7 +805,7 @@ if __name__ == '__main__':
     map = 0 # default map
     if args.map: #specifed map is chosen
         map = args.map[0]
-    env = Environment( client, car_config, sensor_config, args.reward_function, map, 19)
+    env = Environment( client, car_config, sensor_config, args.reward_function, map, 5)
     
     
     # initialize HUD
@@ -1023,3 +961,24 @@ if __name__ == '__main__':
         plt.title('Steps per Episode')
         # Display the plot
         plt.show()
+    elif args.operation[0].lower() == 'load':
+        print(f"Loading model from {args.save_path[0]}")
+        network = DuelingDDQN(NUM_ACTIONS).to(device)
+        network.load_state_dict(torch.load(args.save_path[0]))
+        network.eval()
+
+        total_rewards = []
+        for episode in range(50):
+            state = env.reset()
+            done = False
+            total_reward = 0
+            while not done:
+                state_tensor = torch.from_numpy(state).unsqueeze(0).to(device)
+                action = env.epsilon_greedy_action(state_tensor, 0.1)
+                state, reward, done, info = env.step(action)
+                total_reward += reward
+            total_rewards.append(total_reward)
+            print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+        average_reward = sum(total_rewards) / len(total_rewards)
+        print(f"Average Reward over {args.episodes} episodes: {average_reward}")
