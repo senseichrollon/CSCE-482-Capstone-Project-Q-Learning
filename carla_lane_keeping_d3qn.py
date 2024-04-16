@@ -391,48 +391,48 @@ class Environment:
         self.episode = num_ep
         self.reward_number = reward_num
 
-        # # vehicle control
-        # control = self.vehicle.get_control()
+        # vehicle control
+        control = self.vehicle.get_control()
 
-        # # throttle bar
-        # throttle_bar_length = int(100 * control.throttle)
-        # throttle_bar_x = 80
-        # throttle_bar_y = 150
-        # # unfilled rectangle
-        # cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
-        # # throttle fill
-        # throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)
-        # cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
+        # throttle bar
+        throttle_bar_length = int(100 * control.throttle)
+        throttle_bar_x = 80
+        throttle_bar_y = 150
+        # unfilled rectangle
+        cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
+        # throttle fill
+        throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)
+        cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
 
-        # # steer bar
-        # steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
-        # steer_bar_x = 80
-        # steer_bar_y = 170
-        # cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
-        # # Draw slider for steer value
-        # slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
-        # slider_y = steer_bar_y
-        # cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
+        # steer bar
+        steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
+        steer_bar_x = 80
+        steer_bar_y = 170
+        cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
+        # Draw slider for steer value
+        slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
+        slider_y = steer_bar_y
+        cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
 
-        # # Calculate the speed (magnitude of velocity)
-        # velocity = self.vehicle.get_velocity()
-        # speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
-        # speed = speed ** 0.5
+        # Calculate the speed (magnitude of velocity)
+        velocity = self.vehicle.get_velocity()
+        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+        speed = speed ** 0.5
 
-        # # display location
-        # location = self.vehicle.get_location()
-        # formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
+        # display location
+        location = self.vehicle.get_location()
+        formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
 
-        # cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
-        # cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
+        cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
+        cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
 
-        # cv2.imshow("Camera View", image_array_copy)
-        # cv2.waitKey(5)
+        cv2.imshow("Camera View", image_array_copy)
+        cv2.waitKey(5)
 
     def step(self, action):
         self.throttle, self.steer = action
