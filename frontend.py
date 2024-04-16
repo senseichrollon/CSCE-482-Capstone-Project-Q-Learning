@@ -4,6 +4,9 @@ from tkinter import ttk
 from googletrans import Translator
 from googletrans import LANGUAGES
 from carla_lane_keeping_d3qn import update_plot
+import subprocess
+import threading
+
 #import carla
 
 # Global variables to store rewards and num_steps
@@ -44,6 +47,13 @@ def run_backend():
     arg7 = entry7.get()
     arg8 = entry8.get()
     subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8])
+
+
+def run_backend_thread():
+    backend_thread = threading.Thread(target=run_backend)
+    backend_thread.start()
+
+
 
 root = tk.Tk()
 root.title("CARLA User Interface")
@@ -96,7 +106,7 @@ entry8.insert(0, "300")
 entry8.grid(row=7, column=1, padx=5, pady=5)
 
 # Create 'Run' button
-run_button = tk.Button(root, text="Run Backend", command=run_backend)
+run_button = tk.Button(root, text="Run Backend", command=run_backend_thread)
 run_button.grid(row=10, column=0, columnspan=2, padx=5, pady=5)
 
 # Create language dropdown menu
