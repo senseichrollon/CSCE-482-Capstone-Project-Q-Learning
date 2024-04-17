@@ -246,6 +246,7 @@ class Environment:
         reward_function,
         map=0,
         spawn_index=None,
+        random=False
     ):
         # Connecting to Carla Client
         self.client = carla_client
@@ -265,6 +266,7 @@ class Environment:
         """
         ## Setting environment attributes
         self.car_config = car_config
+        self.random = random
         self.sensor_config = sensor_config
         self.rf = int(reward_function[0])
         self.blueprint_library = self.world.get_blueprint_library()
@@ -338,7 +340,7 @@ class Environment:
                 # If the actor doesn't exist, print a message (optional)
                 print("Actor with ID", actor_id, "not found.")
 
-        if self.spawn_point is None:
+        if self.spawn_point is None or self.random:
             spawn_points = self.world.get_map().get_spawn_points()
             self.spawn_point = random.choice(spawn_points)
             print(f"spawn index: {spawn_points.index(self.spawn_point)}")
@@ -956,7 +958,7 @@ if __name__ == "__main__":
     map = 0  # default map
     if args.map:  # specifed map is chosen
         map = args.map[0]
-    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19)
+    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19, random=True)
 
     # initialize HUD
     hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
@@ -973,13 +975,13 @@ if __name__ == "__main__":
 
         replay_buffer = ReplayBuffer(10000)
         batch_size = 64
-        gamma = 0.99
+        gamma = 0.99    
         epsilon_start = 1
         epsilon_end = 0.01
         epsilon_decay = 0.993
-        epsilon_decrement = 0.005
-        num_episodes = 600
-        max_num_steps = 300
+        epsilon_decrement = 0.001
+        num_episodes = 2000
+        max_num_steps = 400
         if args.epsilon_decrement:
             epsilon_decrement = float(args.epsilon_decrement[0])  # default value 0.005
         if args.num_episodes:
