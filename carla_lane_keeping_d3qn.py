@@ -452,7 +452,56 @@ class Environment:
         dd = np.linalg.norm(current_xy - self.prev_xy)
         self.distance += dd
 
+        
+
         info = {}
+
+        # getting info data
+
+        vehicle_transform = self.vehicle.get_transform()
+        vehicle_location = vehicle_transform.location
+        vehicle_rotation = vehicle_transform.rotation.yaw
+        map = self.world.get_map()
+        waypoint = map.get_waypoint(
+            vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
+        )
+
+        vehicle_rotation_radians = math.radians(vehicle_rotation)
+        vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
+            2 * np.pi
+        ) - np.pi
+
+        road_direction = waypoint.transform.rotation.yaw
+        road_direction_radians = math.radians(road_direction)
+        theta = abs(vehicle_rotation_radians - road_direction_radians) % (2 * np.pi)
+        if theta > np.pi:
+            theta = 2 * np.pi - theta
+        going_opposite_direction = theta > np.pi / 2
+
+        road_half_width = waypoint.lane_width / 2.0
+
+        center_of_lane = waypoint.transform.location
+        distance_from_center = vehicle_location.distance(center_of_lane)
+
+        not_near_center = distance_from_center > road_half_width / 1.5
+        done = not_near_center or going_opposite_direction or self.collision_detected
+
+        current_xy = np.array([vehicle_location.x, vehicle_location.y])
+        dd = np.linalg.norm(current_xy - self.prev_xy)
+
+        Py = distance_from_center
+
+        velocity = self.vehicle.get_velocity()
+        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+        speed = speed ** 0.5
+
+        info["angle"] = math.cos(theta)
+        info["lane_deviation"] = Py
+        info["collision"] = 1 if self.collision_detected else 0
+        info["speed"] = speed
+
+
+
         # Calculate reward based on the chosen reward function
         if self.rf == 1:
             reward, done = self.reward_1()
@@ -860,23 +909,37 @@ def optimize_model(memory, batch_size, gamma):
     optimizer.step()
 
 
-def update_plot(rewards, num_steps):
+def update_plot(rewards, num_steps, lane_deviation, speed, angle):
    # with open('plot')
     plt.clf()
+    plt.figure(figsize=(10, 8))
 
     # create plots
-    plt.subplot(2, 1, 1)
+    plt.subplot(3, 1, 1)
     plt.plot(np.arange(0, len(rewards)), rewards)
     plt.xlabel("Training Episodes")
     plt.ylabel("Average Reward per Episode")
     plt.title("Average Reward")
 
     # Plot the number of steps per episode
-    plt.subplot(2, 1, 2)
+    plt.subplot(3, 1, 2)
     plt.plot(np.arange(0, len(num_steps)), num_steps)
     plt.xlabel("Training Episodes")
     plt.ylabel("Number of Steps per Episode")
     plt.title("Steps per Episode")
+
+    plt.subplot(3, 1, 3)
+    y1 = lane_deviation
+    y2 = speed
+    y3 = angle
+    x = len(speed)
+    plt.plot(x, y1, label='Lane Deviation (distance from center)')
+    plt.plot(x, y2, label='Speed (m/s)')
+    plt.plot(x, y3, label='Angle (radians)')
+    plt.xlabel('Training Episodes')
+    plt.ylabel('Lane Deviation, Speed, Angle')
+    plt.title('Lane Deviation, Speed, Angle per Episode')
+    plt.legend()
 
     # Adjust layout and display the plot
     plt.tight_layout()
@@ -1006,8 +1069,14 @@ if __name__ == "__main__":
         # opening file to append data
         file = open('plot_data.csv', 'w', newline ='')
         writer = csv.writer(file)
+        file2 = open('step_plot.csv', 'w', newline='')
+        writer2 = csv.writer(file2)
+        writer2.writerow(["lane_dev_avg", "angle_avg", "speed_avg"])
 
         for episode in range(num_episodes):
+            ep_deviation = []
+            ep_angles= []
+            ep_speed = []
             num_ep = episode
             state = env.reset()
             elapsed_since_last_iteration = time.time() - start_time
@@ -1026,9 +1095,11 @@ if __name__ == "__main__":
 
                 # Select action using epsilon greedy policy
                 action = env.epsilon_greedy_action(state_tensor, epsilon)
-                next_state, reward, done, _ = env.step(action)
-                # next_state = next_state
-
+                next_state, reward, done, info = env.step(action)   #data here
+                # next_state = next_state   
+                ep_deviation.append(info["lane_deviation"])
+                ep_angles.append(info["angle"])
+                ep_speed.append(info["speed"])
                 # Convert next_state to tensor and move to device
                 next_state_tensor = (
                     torch.from_numpy(next_state).unsqueeze(0).to(device)
@@ -1064,6 +1135,15 @@ if __name__ == "__main__":
                 # camera_image_with_hud = hud.tick(camera_image)
                 # cv2.imshow("Camera View with HUD", camera_image_with_hud)
                 # cv2.waitKey(1)
+            #while loop ends
+            lane_dev_avg = np.mean(ep_deviation)
+            angle_avg= np.mean(ep_angles)
+            speed_avg = np.mean(ep_speed)
+            data2= [lane_dev_avg, angle_avg, speed_avg]
+            #write this data to a file for frontend use
+            writer2.writerow(data2)
+            file2.flush()
+
 
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
@@ -1096,6 +1176,7 @@ if __name__ == "__main__":
             "saves/v" + args.version[0] + "_final_dqn_network_nn_model.pth",
         )
         file.close()
+        file2.close()
 
         #for loop ends
 
@@ -1104,7 +1185,7 @@ if __name__ == "__main__":
         print(f"num_steps = {num_steps}")
 
         # update plot for frontend
-        update_plot(rewards, num_steps)
+        update_plot(rewards, num_steps, _, _, _)
         #   display.render()
         plt.show()
         # Create a line graph
