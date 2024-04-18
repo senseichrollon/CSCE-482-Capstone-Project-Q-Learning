@@ -6,7 +6,7 @@ from googletrans import LANGUAGES
 from carla_lane_keeping_d3qn import update_plot
 import subprocess
 import threading
-
+import csv
 #import carla
 
 # Global variables to store rewards and num_steps
@@ -35,6 +35,19 @@ available_rewards = ["1", "2", "3", "4"]
 available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
 
 def show_plot():
+    csv_file = 'plot_data.csv'
+
+    file = open(csv_file, 'r', newline='')
+    reader= csv.reader(file)
+    rewards= []
+    num_steps = []
+    for row in reader:
+        x,y= map(float, row)
+        rewards.append(x)
+        num_steps.append(y)
+
+    file.close()
+
     update_plot(rewards, num_steps)
             
 def run_backend():
