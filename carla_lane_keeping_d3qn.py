@@ -13,6 +13,7 @@ import math
 import cv2
 import sys
 from PIL import Image
+import csv
 
 
 """
@@ -860,6 +861,7 @@ def optimize_model(memory, batch_size, gamma):
 
 
 def update_plot(rewards, num_steps):
+   # with open('plot')
     plt.clf()
 
     # create plots
@@ -1001,6 +1003,9 @@ if __name__ == "__main__":
 
         epsilon = epsilon_start
         start_time = time.time()
+        # opening file to append data
+        file = open('plot_data.csv', 'w', newline ='')
+        writer = csv.writer(file)
 
         for episode in range(num_episodes):
             num_ep = episode
@@ -1008,7 +1013,7 @@ if __name__ == "__main__":
             elapsed_since_last_iteration = time.time() - start_time
             start_time = time.time()
 
-            # print(f"main, state.shape after reset = {state.shape}")
+            # print(f"main, state.shape after reset = {state.shape.app}")
             # print(state)
             #     display.reset()
             total_reward = 0
@@ -1062,6 +1067,12 @@ if __name__ == "__main__":
 
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
+            data = [float(total_reward) / float(step), float(step)]
+            #file.write(data)
+            print("data to be written", data)
+            #data = float(data)
+            writer.writerow(data)
+            file.flush()
 
             if total_reward > best_dict_reward:
                 print("Saving new best")
@@ -1084,6 +1095,9 @@ if __name__ == "__main__":
             target_network.state_dict(),
             "saves/v" + args.version[0] + "_final_dqn_network_nn_model.pth",
         )
+        file.close()
+
+        #for loop ends
 
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")
