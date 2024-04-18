@@ -33,7 +33,7 @@ available_rewards = ["1", "2", "3", "4"]
 
 # available maps
 available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
-
+true_false = ["True", "False"]
 def show_plot():
     csv_file = 'plot_data.csv'
 
@@ -58,12 +58,12 @@ def show_plot():
     for row in reader2:
         x,y,z = map(float, row)
         lane_deviation.append(x)
-        speed.append(z)
         angle.append(y)
+        speed.append(z)
     file2.close()
 
 
-    update_plot(rewards, num_steps, lane_deviation, speed, angle)
+    update_plot(rewards, num_steps, lane_deviation, angle, speed)
             
 def run_backend():
     arg1 = entry1.get()
@@ -74,7 +74,9 @@ def run_backend():
     arg6 = entry6.get()
     arg7 = entry7.get()
     arg8 = entry8.get()
-    subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8])
+    arg9 = entry9.get()
+
+    subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8, '--random-spawn', arg9])
 
 
 def run_backend_thread():
@@ -133,29 +135,40 @@ entry8 = tk.Entry(root)
 entry8.insert(0, "300") 
 entry8.grid(row=7, column=1, padx=5, pady=5)
 
-# Create 'Run' button
-run_button = tk.Button(root, text="Run Backend", command=run_backend_thread)
-run_button.grid(row=10, column=0, columnspan=2, padx=5, pady=5)
+label9 = tk.Label(root, text="Random Vehicle Spawn Location?")
+label9.grid(row=8, column=0, padx=5, pady=5)
+entry9 = ttk.Combobox(root, values=true_false)
+entry9.insert(0, "True") 
+entry9.grid(row=8, column=1, padx=5, pady=5)
+
 
 # Create language dropdown menu
 languages = list(LANGUAGES.values())
 language_select_label = tk.Label(root, text="Select Language:")
-language_select_label.grid(row=8, column=0, padx=5, pady=5)
+language_select_label.grid(row=9, column=0, padx=5, pady=5)
 #languages = [ 'fr', 'en', 'sp']  # Add more languages as needed
 language_select = ttk.Combobox(root, values=languages)
 
-language_select.grid(row=8, column=1, padx=5, pady=5)
+language_select.grid(row=9, column=1, padx=5, pady=5)
 
-
-language_select.current(0)  # Set default language
-language = language_select.current(0)  # Set default language
+language_select.current(21)  # Set default language
+language = language_select.current(21)  # Set default language
 #root.language = language_select.get()
 # Create 'Translate' button
 translate_button = tk.Button(root, text="Translate", command=lambda:translate_labels(root, language_select.get()))
-translate_button.grid(row=9, column=0, columnspan=2, padx=(20,50), pady=5)
+translate_button.grid(row=9, column=2, columnspan=2, padx=(20,20), pady=5)
+
+
+     
+# Create 'Run' button
+run_button = tk.Button(root, text="Run Backend", command=run_backend_thread)
+run_button.grid(row=10, column=0, columnspan=2, padx=5, pady=5)
 
 plot_button = tk.Button(root, text="Show Plot", command=show_plot)
-plot_button.grid(row=9, column=1, columnspan=2, padx=(50,20), pady=5)
+plot_button.grid(row=10, column=1, columnspan=2, padx=(20,20), pady=5)
+
+
+
 
 
 # Start the GUI event loop

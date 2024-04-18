@@ -909,9 +909,9 @@ def optimize_model(memory, batch_size, gamma):
     optimizer.step()
 
 
-def update_plot(rewards, num_steps, lane_deviation, speed, angle):
+def update_plot(rewards, num_steps, lane_deviation, angle, speed):
    # with open('plot')
-    plt.clf()
+    #plt.clf()  just adds blank figure
     plt.figure(figsize=(10, 8))
 
     # create plots
@@ -930,15 +930,15 @@ def update_plot(rewards, num_steps, lane_deviation, speed, angle):
 
     plt.subplot(3, 1, 3)
     y1 = lane_deviation
-    y2 = speed
-    y3 = angle
+    y2 = angle
+    y3 = speed
     x = len(speed)
-    plt.plot(x, y1, label='Lane Deviation (distance from center)')
-    plt.plot(x, y2, label='Speed (m/s)')
-    plt.plot(x, y3, label='Angle (radians)')
+    plt.plot(np.arange(0, x), y1, label='Lane Deviation (distance from center)')
+    plt.plot(np.arange(0, x), y2, label='Angle (radians)')
+    plt.plot(np.arange(0, x), y3, label='Speed (m/s)')
     plt.xlabel('Training Episodes')
-    plt.ylabel('Lane Deviation, Speed, Angle')
-    plt.title('Lane Deviation, Speed, Angle per Episode')
+    plt.ylabel('Lane Deviation, Angle, Speed')
+    plt.title('Lane Deviation, Angle, Speed per Episode')
     plt.legend()
 
     # Adjust layout and display the plot
@@ -1000,6 +1000,13 @@ if __name__ == "__main__":
         help="Maximum number of steps per episode",
         required=False,
     )
+    parser.add_argument(
+        "--random-spawn",
+        type=str,
+        nargs=1,
+        help="Vehicle spawn location random? (True/False)",
+        required= False,
+    )
     args = parser.parse_args()
 
     if not args.operation:
@@ -1023,7 +1030,13 @@ if __name__ == "__main__":
     map = 0  # default map
     if args.map:  # specifed map is chosen
         map = args.map[0]
-    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19, random=True)
+    
+    random_spawn = True # default random value
+    if args.random_spawn:
+        if(args.random_spawn[0] == "False"):
+            random_spawn= False
+
+    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19, random=random_spawn)
 
     # initialize HUD
     hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
@@ -1072,7 +1085,9 @@ if __name__ == "__main__":
         file2 = open('step_plot.csv', 'w', newline='')
         writer2 = csv.writer(file2)
         writer2.writerow(["lane_dev_avg", "angle_avg", "speed_avg"])
-
+        lane_deviations =[]
+        speeds= []
+        angles =[]
         for episode in range(num_episodes):
             ep_deviation = []
             ep_angles= []
@@ -1139,21 +1154,24 @@ if __name__ == "__main__":
             lane_dev_avg = np.mean(ep_deviation)
             angle_avg= np.mean(ep_angles)
             speed_avg = np.mean(ep_speed)
-            data2= [lane_dev_avg, angle_avg, speed_avg]
+            lane_deviations.append(lane_dev_avg)
+            angles.append(angle_avg)
+            speeds.append(speed_avg)
+            
             #write this data to a file for frontend use
-            writer2.writerow(data2)
-            file2.flush()
+            
+            
 
 
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
             data = [float(total_reward) / float(step), float(step)]
-            #file.write(data)
-            print("data to be written", data)
-            #data = float(data)
+            data2= [lane_dev_avg, angle_avg, speed_avg]
+          #  print("data to be written", data)
             writer.writerow(data)
+            writer2.writerow(data2)
             file.flush()
-
+            file2.flush()
             if total_reward > best_dict_reward:
                 print("Saving new best")
                 torch.save(
@@ -1185,7 +1203,7 @@ if __name__ == "__main__":
         print(f"num_steps = {num_steps}")
 
         # update plot for frontend
-        update_plot(rewards, num_steps, _, _, _)
+        update_plot(rewards, num_steps, lane_deviations, angles, speeds)
         #   display.render()
         plt.show()
         # Create a line graph
