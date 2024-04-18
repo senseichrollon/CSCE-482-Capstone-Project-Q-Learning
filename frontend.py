@@ -48,7 +48,22 @@ def show_plot():
 
     file.close()
 
-    update_plot(rewards, num_steps)
+    csv_file2 = 'step_plot.csv'
+    file2 = open(csv_file2, 'r', newline='')
+    reader2 = csv.reader(file2)
+    lane_deviation=[]
+    speed = []
+    angle = []
+    next(reader2)
+    for row in reader2:
+        x,y,z = map(float, row)
+        lane_deviation.append(x)
+        speed.append(z)
+        angle.append(y)
+    file2.close()
+
+
+    update_plot(rewards, num_steps, lane_deviation, speed, angle)
             
 def run_backend():
     arg1 = entry1.get()
