@@ -915,20 +915,20 @@ def update_plot(rewards, num_steps, lane_deviation, angle, speed):
     plt.figure(figsize=(10, 8))
 
     # create plots
-    plt.subplot(3, 1, 1)
+    plt.subplot(4, 1, 1)
     plt.plot(np.arange(0, len(rewards)), rewards)
     plt.xlabel("Training Episodes")
     plt.ylabel("Average Reward per Episode")
     plt.title("Average Reward")
 
     # Plot the number of steps per episode
-    plt.subplot(3, 1, 2)
+    plt.subplot(4, 1, 2)
     plt.plot(np.arange(0, len(num_steps)), num_steps)
     plt.xlabel("Training Episodes")
     plt.ylabel("Number of Steps per Episode")
     plt.title("Steps per Episode")
 
-    plt.subplot(3, 1, 3)
+    plt.subplot(4, 1, 3)
     y1 = lane_deviation
     y2 = angle
     y3 = speed
@@ -940,6 +940,15 @@ def update_plot(rewards, num_steps, lane_deviation, angle, speed):
     plt.ylabel('Lane Deviation, Angle, Speed')
     plt.title('Lane Deviation, Angle, Speed per Episode')
     plt.legend()
+
+    plt.subplot(4, 1, 4)
+    plt.scatter(np.arange(0, len(rewards)), rewards, color='blue')
+    coeffs = np.polyfit(np.arange(len(rewards)), rewards, 1)
+    p = np.poly1d(coeffs)
+    plt.plot(np.arange(len(rewards)), p(np.arange(len(rewards))), 'r--')
+    plt.xlabel("Training Episodes")
+    plt.ylabel("Average Reward per Episode")
+    plt.title("Average Reward (Corr: {:.2f})".format(np.corrcoef(rewards, p(np.arange(len(rewards))))[0, 1]))
 
     # Adjust layout and display the plot
     plt.tight_layout()
@@ -1206,9 +1215,9 @@ if __name__ == "__main__":
         update_plot(rewards, num_steps, lane_deviations, angles, speeds)
         #   display.render()
         plt.show()
+
         # Create a line graph
         plt.plot(eps, rewards)
-
         # Add labels and a title
         plt.xlabel("Training Episodes")
         plt.ylabel("Average Reward per Episode")
