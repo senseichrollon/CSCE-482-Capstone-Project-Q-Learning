@@ -35,32 +35,42 @@ available_rewards = ["1", "2", "3", "4"]
 available_maps = ["Town01", "Town02", "Town03", "Town04", "Town05"]
 true_false = ["True", "False"]
 def show_plot():
-    csv_file = 'plot_data.csv'
 
-    file = open(csv_file, 'r', newline='')
-    reader= csv.reader(file)
-    rewards= []
-    num_steps = []
-    for row in reader:
-        x,y= map(float, row)
-        rewards.append(x)
-        num_steps.append(y)
+    try:
+        csv_file = 'plot_data.csv'
 
-    file.close()
+        file = open(csv_file, 'r', newline='')
+        reader= csv.reader(file)
+        rewards= []
+        num_steps = []
+        for row in reader:
+            x,y= map(float, row)
+            rewards.append(x)
+            num_steps.append(y)
 
-    csv_file2 = 'step_plot.csv'
-    file2 = open(csv_file2, 'r', newline='')
-    reader2 = csv.reader(file2)
-    lane_deviation=[]
-    speed = []
-    angle = []
-    next(reader2)
-    for row in reader2:
-        x,y,z = map(float, row)
-        lane_deviation.append(x)
-        angle.append(y)
-        speed.append(z)
-    file2.close()
+        file.close()
+
+        csv_file2 = 'step_plot.csv'
+        file2 = open(csv_file2, 'r', newline='')
+        reader2 = csv.reader(file2)
+        lane_deviation=[]
+        speed = []
+        angle = []
+
+        next(reader2)
+        for row in reader2:
+            x,y,z = map(float, row)
+            lane_deviation.append(x)
+            angle.append(y)
+            speed.append(z)
+
+        file2.close()
+    except StopIteration:
+        print("The file is empty.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    
 
 
     update_plot(rewards, num_steps, lane_deviation, angle, speed)
