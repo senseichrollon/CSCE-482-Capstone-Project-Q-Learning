@@ -395,47 +395,51 @@ class Environment:
         self.reward_number = reward_num
 
         # # vehicle control
-        # control = self.vehicle.get_control()
+        """
+        ###
+        control = self.vehicle.get_control()
 
         # # throttle bar
-        # throttle_bar_length = int(100 * control.throttle)
-        # throttle_bar_x = 80
-        # throttle_bar_y = 150
+        throttle_bar_length = int(100 * control.throttle)
+        throttle_bar_x = 80
+        throttle_bar_y = 150
         # # unfilled rectangle
-        # cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
+        cv2.rectangle(image_array_copy, (throttle_bar_x, throttle_bar_y), (throttle_bar_x + 100, throttle_bar_y + 10), (255, 255, 255), 1)
         # # throttle fill
-        # throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)
-        # cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
+        throttle_color = (int(255 * control.throttle), int(255 * (1 - control.throttle)), 0)
+        cv2.rectangle(image_array_copy, (throttle_bar_x + 1, throttle_bar_y + 1), (throttle_bar_x + throttle_bar_length, throttle_bar_y + 9), throttle_color, -1)
 
         # # steer bar
-        # steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
-        # steer_bar_x = 80
-        # steer_bar_y = 170
-        # cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
+        steer_bar_length = int(50 * (control.steer + 1))  # Adjust multiplier as needed
+        steer_bar_x = 80
+        steer_bar_y = 170
+        cv2.rectangle(image_array_copy, (steer_bar_x, steer_bar_y), (steer_bar_x + 100, steer_bar_y + 10), (255, 255, 255), 1)
         # # Draw slider for steer value
-        # slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
-        # slider_y = steer_bar_y
-        # cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
+        slider_x = steer_bar_x + int(100 * (control.steer + 1) / 2)
+        slider_y = steer_bar_y
+        cv2.rectangle(image_array_copy, (slider_x - 3, slider_y), (slider_x + 3, slider_y + 9), (255, 255, 255), -1)
 
         # # Calculate the speed (magnitude of velocity)
-        # velocity = self.vehicle.get_velocity()
-        # speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
-        # speed = speed ** 0.5
+        velocity = self.vehicle.get_velocity()
+        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
+        speed = speed ** 0.5
 
         # # display location
-        # location = self.vehicle.get_location()
-        # formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
+        location = self.vehicle.get_location()
+        formatted_location = "({:.2f}, {:.2f})".format(location.x, location.y)
 
-        # cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
-        # cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
-        # cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
+        cv2.putText(image_array_copy, f'Simulation Time: {self.time:.2f} s', (10, 40), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Reward Function: {self.reward_number}', (10, 60), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Episode Number: {self.episode}', (10, 80), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Speed: {speed:.2f} m/s', (10, 100), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, f'Location: {formatted_location}', (10, 120), self.font, 0.5, self.font_color)
+        cv2.putText(image_array_copy, "Throttle:", (10, 160), self.font, self.font_scale, self.font_color)
+        cv2.putText(image_array_copy, "Steer:", (10, 180), self.font, self.font_scale, self.font_color)
 
-        # cv2.imshow("Camera View", image_array_copy)
-        # cv2.waitKey(5)
+        cv2.imshow("Camera View", image_array_copy)
+        cv2.waitKey(5)
+        """
+        ###
 
     def step(self, action):
         self.throttle, self.steer = action
@@ -530,7 +534,8 @@ class Environment:
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
-
+    #    print("Vehicle location is", vehicle_location.x, vehicle_location.y)
+   #     print("Vehicle Rotation is", vehicle_rotation)
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
         vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
@@ -546,15 +551,17 @@ class Environment:
         waypoint = map.get_waypoint(
             vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
         )
-
+     #   print("Map is", map)
         # Calculate the heading difference between the vehicle and the road
         road_direction = waypoint.transform.rotation.yaw
+     #   print("Road Direction is", road_direction)
         road_direction_radians = math.radians(road_direction)
+     #   print("Road Direction radians is", road_direction_radians)
+     #   print("Vehicle direction radians is",vehicle_rotation_radians)
         heading_difference = abs(vehicle_rotation_radians - road_direction_radians) % (
             2 * np.pi
         )
-        if heading_difference > np.pi:
-            heading_difference = 2 * np.pi - heading_difference
+
 
         # Heavily penalize if the vehicle is going in the opposite direction (more than 90 degrees away from road direction)
         going_opposite_direction = heading_difference > np.pi / 2
@@ -562,13 +569,18 @@ class Environment:
         road_half_width = waypoint.lane_width / 2.0
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
-
+   #     print("Distance from center is", distance_from_center)
         out_of_lane = self.is_vehicle_within_lane() is False
+     #   print("Is out of lane?", out_of_lane)
+     #   print("Road half width is", road_half_width)
         not_near_center = distance_from_center > road_half_width / 2
-        print(not_near_center, math.degrees(heading_difference))
+    #    print(not_near_center, math.degrees(heading_difference))
+     #   print("Previous xy is", self.prev_xy)
         # Determine if the episode should end
         done = not_near_center or going_opposite_direction or self.collision_detected
 
+      #  print("Are we done?", done)
+      #  print("Heading distance is", heading_difference)
         # Compute reward based on conditions
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         reward = 0
@@ -588,7 +600,9 @@ class Environment:
                 dd * 50
             )  # Assuming the simulation has a tick rate where this scaling makes sense
 
-        reward += (np.pi / 2 - heading_difference) * -100
+    #    print("Reward from ifelif is", reward)
+
+        reward += (abs(heading_difference)) * -100
 
         self.prev_xy = current_xy
         self.collision_detected = False
@@ -674,8 +688,10 @@ class Environment:
         Py = distance_from_center
         Wd = waypoint.lane_width / 2.5
         i_fail = 1 if done else 0
+
         reward = dd + 2 * math.cos(theta) - abs(Py / Wd) - (4 * i_fail)
-        print(reward)
+        print("Theta is", theta)
+        print("Reward 3 reward is", reward)
         return reward, done
 
     def reward_4(self):
@@ -719,7 +735,7 @@ class Environment:
             math.sqrt(dd)
             + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail))
             - 2 * abs(self.steer)
-        )
+        )   
 
         return reward, done, theta, abs(Py)
 

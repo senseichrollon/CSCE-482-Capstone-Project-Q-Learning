@@ -76,6 +76,7 @@ def show_plot():
     update_plot(rewards, num_steps, lane_deviation, angle, speed)
             
 def run_backend():
+    run_button.config(state='disabled')
     arg1 = entry1.get()
     arg2 = entry2.get()
     arg3 = entry3.get()
@@ -87,6 +88,8 @@ def run_backend():
     arg9 = entry9.get()
 
     subprocess.run(['python', 'carla_lane_keeping_d3qn.py', '--version', arg1, '--operation', arg2, '--save-path', arg3, '--reward-function', arg4, '--map', arg5, '--epsilon-decrement', arg6, '--num-episodes', arg7, '--max-steps', arg8, '--random-spawn', arg9])
+    run_button.config(state='normal')
+
 
 
 def run_backend_thread():
