@@ -534,7 +534,7 @@ class Environment:
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
-    #    print("Vehicle location is", vehicle_location.x, vehicle_location.y)
+        print("Vehicle location is", vehicle_location.x, vehicle_location.y)
    #     print("Vehicle Rotation is", vehicle_rotation)
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
@@ -584,6 +584,9 @@ class Environment:
         # Compute reward based on conditions
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         reward = 0
+        
+      #  print("Current xy is", current_xy)
+      #  print("Prev xy is", self.prev_xy)
         if self.collision_detected:
             done = True
             reward = -1000
@@ -600,7 +603,7 @@ class Environment:
                 dd * 50
             )  # Assuming the simulation has a tick rate where this scaling makes sense
 
-    #    print("Reward from ifelif is", reward)
+     #   print("Reward from ifelif is", reward)
 
         reward += (abs(heading_difference)) * -100
 
@@ -730,6 +733,7 @@ class Environment:
 
         Py = distance_from_center
         Wd = waypoint.lane_width / 2.5
+        print(self.steer)
         i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
         reward = (
             math.sqrt(dd)

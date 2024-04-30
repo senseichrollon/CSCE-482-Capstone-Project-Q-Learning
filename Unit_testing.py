@@ -4,7 +4,7 @@ from carla_lane_keeping_d3qn import DuelingDDQN, Environment, ReplayBuffer
 import torch
 import numpy as np
 from unittest.mock import MagicMock
-
+import math
 class DuelingDDQNTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -31,6 +31,7 @@ class DuelingDDQNTest(unittest.TestCase):
 
 
 class TestRewardFunctions(unittest.TestCase):
+
     def setUp(self):
         # Perfect Mock environment 1- straight road, no rotation on car, distance travelled is 5, no steering done
         #no collisions, perfectly center of road. car path aligned with road
@@ -39,7 +40,6 @@ class TestRewardFunctions(unittest.TestCase):
         self.env.world=MagicMock()
         self.env.steer= 0
         self.env.is_vehicle_within_lane = MagicMock(return_value=True)
-        self.env.vehicle.get_transform.return_value.location =MagicMock(0,0)
         self.env.vehicle.get_transform.return_value.location.x =4   #vehicle x location
         self.env.vehicle.get_transform.return_value.location.y =3   #vehicle y location
         self.env.vehicle.get_transform.return_value.location.distance = MagicMock(return_value=0) #distance between roads center and car
@@ -54,6 +54,24 @@ class TestRewardFunctions(unittest.TestCase):
         self.waypoint.transform.location.distance = MagicMock(return_value=0)
 
         self.env.world.get_map.return_value.get_waypoint.return_value = self.waypoint
+    
+    def create_environment(self, vehicle_x, vehicle_y, vehicle_yaw, lane_width, road_yaw, distance_from_center, collision, steer= 0):
+        self.env.vehicle.get_transform.return_value.location.x = vehicle_x
+        self.env.vehicle.get_transform.return_value.location.y = vehicle_y
+        self.env.vehicle.get_transform.return_value.location.distance = MagicMock(return_value=distance_from_center)
+        self.env.vehicle.get_transform.return_value.rotation.yaw = vehicle_yaw
+        self.env.prev_xy = np.array([0, 0])
+        self.env.collision_detected = collision
+        self.env.steer= steer
+        waypoint = MagicMock()
+        waypoint.lane_width = lane_width
+        waypoint.transform = MagicMock()
+        waypoint.transform.rotation.yaw = road_yaw
+        waypoint.transform.location = MagicMock()
+        waypoint.transform.location.distance = MagicMock(return_value=distance_from_center)
+        
+        self.env.world.get_map.return_value.get_waypoint.return_value = waypoint
+
 
     def simulate_step(self, action):
         # Simulate an environment step without needing the full environment
@@ -63,29 +81,71 @@ class TestRewardFunctions(unittest.TestCase):
 
     def test_reward_function_1(self):
         # Mock the environment state that corresponds to specific conditions for reward function 1
-        reward,done = self.env.reward_1(self.env)
-        # Example check (customize as per your reward function's logic)
-        print(reward)
-        self.assertEqual(reward, 250)  # Assuming that reward function 1 might penalize for certain actions
-        self.assertFalse(done)
+
+        test_cases= [{'vehicle_x': 4, 'vehicle_y': 3, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                     ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                      ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 1}
+                       ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 10, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                   ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 0, 'collision': 0}
+               ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 13, 'collision': 0}
+      ]
+        expected_rewards=[250, 500, -1000, 500- math.pi/180*10*100, 650- math.pi/180*5*100, -100-math.pi/180*5*100]
+        expected_done =[False, False, True, False, False, True]
+        i=0
+        for case in test_cases:
+            with self.subTest(case=case):
+                self.create_environment(**case)
+                reward,done = self.env.reward_1(self.env)
+                self.assertAlmostEqual(reward, expected_rewards[i], places =5)  # Assuming that reward function 1 might penalize for certain actions
+                self.assertEqual(done,expected_done[i])
+                i+=1
+
 
     def test_reward_function_3(self):
-        # Mock the environment state that corresponds to specific conditions for reward function 1
-        reward,done = self.env.reward_3(self.env)
-        # Example check (customize as per your reward function's logic)
-        print(reward)
-        self.assertEqual(reward, 7)  # Assuming that reward function 1 might penalize for certain actions
-        self.assertFalse(done)
+        # Mock the environment state that corresponds to specific conditions for reward function 3
+        test_cases= [{'vehicle_x': 4, 'vehicle_y': 3, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                     ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                      ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 1}
+                       ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 10, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                   ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 0, 'collision': 0}
+               ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 13, 'collision': 0}
+      ]
+        expected_rewards=[7, 10+2, 8, 10+ 2*math.cos(math.pi/180*10), 13+2*math.cos(math.pi/180*5), 13+2*math.cos(math.pi/180*5) -4- 13/(10/2.5)]
+        expected_done =[False, False, True, False, False, True]
+        i=0
+        for case in test_cases:
+            with self.subTest(case=case):
+                self.create_environment(**case)
+                reward,done = self.env.reward_3(self.env)
+                self.assertAlmostEqual(reward, expected_rewards[i], places =5)  # Assuming that reward function 1 might penalize for certain actions
+                self.assertEqual(done,expected_done[i])
+                i+=1
 
     def test_reward_function_4(self):
-        # Mock the environment state that corresponds to specific conditions for reward function 1
-        reward,done, theta, Py = self.env.reward_4(self.env)
-        # Example check (customize as per your reward function's logic)
-        print(reward)
-     #   self.assertEqual(reward, 5)  # Assuming that reward function 1 might penalize for certain actions
-        self.assertFalse(done)
-        self.assertEqual(theta, 0)
-        self.assertEqual(Py, 0)
+        # Mock the environment state that corresponds to specific conditions for reward function 4
+        test_cases= [{'vehicle_x': 4, 'vehicle_y': 3, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                     ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                      ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 0, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 1}
+                       ,{'vehicle_x': 8, 'vehicle_y': 6, 'vehicle_yaw': 10, 'lane_width': 10, 'road_yaw': 0, 'distance_from_center': 0, 'collision': 0}
+                   ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 0, 'collision': 0}
+               ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 13, 'collision': 0}
+                   ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 13, 'collision': 0,'steer': 0.15}
+                ,{'vehicle_x': 5, 'vehicle_y': 12, 'vehicle_yaw': 5, 'lane_width': 10, 'road_yaw': 10, 'distance_from_center': 13, 'collision': 0,'steer': -0.05}
+                ]
+        expected_rewards=[math.sqrt(5)+1, math.sqrt(10)+1, math.sqrt(10)+1, 
+                        math.sqrt(10)+math.cos(math.pi/180*10), math.sqrt(13)+math.cos(math.pi/180*5),
+                        math.sqrt(13)+math.cos(math.pi/180*5)-2 - 13/(10/2.5),
+                        math.sqrt(13)+math.cos(math.pi/180*5)-2 - 13/(10/2.5)- 2*.15,
+                        math.sqrt(13)+math.cos(math.pi/180*5)-2 - 13/(10/2.5)- 2*.05]
+        expected_done =[False, False, True, False, False, True, True,True]
+        i=0
+        for case in test_cases:
+            with self.subTest(case=case):
+                self.create_environment(**case)
+                reward,done, theta, Py = self.env.reward_4(self.env)
+                self.assertAlmostEqual(reward, expected_rewards[i], places =5)  # Assuming that reward function 1 might penalize for certain actions
+                self.assertEqual(done,expected_done[i])
+                i+=1
 
 """
 
