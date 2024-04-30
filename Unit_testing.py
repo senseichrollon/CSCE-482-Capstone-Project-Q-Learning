@@ -56,6 +56,7 @@ class TestRewardFunctions(unittest.TestCase):
         self.env.world.get_map.return_value.get_waypoint.return_value = self.waypoint
     
     def create_environment(self, vehicle_x, vehicle_y, vehicle_yaw, lane_width, road_yaw, distance_from_center, collision, steer= 0):
+        # Creating environment to test reward functions
         self.env.vehicle.get_transform.return_value.location.x = vehicle_x
         self.env.vehicle.get_transform.return_value.location.y = vehicle_y
         self.env.vehicle.get_transform.return_value.location.distance = MagicMock(return_value=distance_from_center)
@@ -147,15 +148,20 @@ class TestRewardFunctions(unittest.TestCase):
                 self.assertEqual(done,expected_done[i])
                 i+=1
 
-"""
 
+###Testing Carla Environment, making sure car and sensors are set up correctly, and making sure environment functions work properly
 class EnvironmentTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = carla.Client("localhost", 2000)
         cls.client.set_timeout(10.0)
         cls.car_config = {'id': 'vehicle.audi.tt'}
-        cls.sensor_config = {'fov': 90}
+        sensor_config = {  # default sensor configuration
+        "image_size_x": 640,  # Width of the image in pixels
+        "image_size_y": 480,  # Height of the image in pixels
+        "fov": 90,  # Field of view in degrees
+        }
+        cls.sensor_config = sensor_config
         cls.reward_function = [1]  # Using the first type of reward function as an example.
         cls.env = Environment(cls.client, cls.car_config, cls.sensor_config, cls.reward_function)
 
@@ -164,6 +170,22 @@ class EnvironmentTest(unittest.TestCase):
         state = self.env.reset()
         self.assertIsNotNone(state, "The environment did not return a valid initial state.")
 
+        #assert that after reset, there are two sensors (camera and collision detector) and one vehicle
+        actor_list= self.env.world.get_actors()
+        vehicle_num= [
+            actor.id
+            for actor in actor_list
+            if "vehicle" in actor.type_id
+        ]
+        sensor_num = [
+            actor.id
+            for actor in actor_list
+            if "sensor" in actor.type_id
+        ]
+        self.assertEqual(len(vehicle_num),1)
+        self.assertEqual(len(sensor_num),2)
+
+
 class ReplayBufferTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -171,12 +193,14 @@ class ReplayBufferTest(unittest.TestCase):
         cls.replay_buffer = ReplayBuffer(cls.buffer_capacity)
 
     def test_store_experience(self):
+        #Test if experiences are stored correctly.
         initial_size = self.replay_buffer.size()
         experience = (np.random.rand(3, 480, 640), 0, 1.0, np.random.rand(3, 480, 640), False)
         self.replay_buffer.store(experience)
         self.assertEqual(self.replay_buffer.size(), initial_size + 1, "Experience was not stored correctly.")
 
     def test_sample_batch(self):
+        #Test if batch sampling from buffer works correctly.
         batch_size = 32
         # Populate the buffer with more than batch_size experiences
         for _ in range(100):
@@ -184,7 +208,7 @@ class ReplayBufferTest(unittest.TestCase):
             self.replay_buffer.store(experience)
         sample = self.replay_buffer.sample(batch_size)
         self.assertEqual(len(sample), batch_size, "Sampled batch size does not match the requested size.")
-"""
+
 
 
 if __name__ == '__main__':
