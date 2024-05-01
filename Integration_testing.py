@@ -3,7 +3,6 @@ import carla
 from carla_lane_keeping_d3qn import DuelingDDQN, Environment, ReplayBuffer, optimize_model
 import torch
 import numpy as np
-import frontend
 def get_action_values(action_index):
     # Example mappings, these need to be defined according to your specific action space design
         throttle_values = np.linspace(0, 0.5, num=5)  # Example throttle values
