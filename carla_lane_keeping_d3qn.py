@@ -37,6 +37,28 @@ print("Client established")
 
 
 class DuelingDDQN(nn.Module):
+    """
+    Dueling Double Deep Q-Network (DDQN) model for reinforcement learning.
+
+    This neural network model predicts Q-values for each action given a state.
+
+    Args:
+        action_dim (int): Dimensionality of the action space.
+        image_dim (tuple): Dimensions of the input image (height, width).
+
+    Attributes:
+        conv1 (nn.Conv2d): First convolutional layer.
+        pool1 (nn.MaxPool2d): First max pooling layer.
+        conv2 (nn.Conv2d): Second convolutional layer.
+        pool2 (nn.MaxPool2d): Second max pooling layer.
+        conv3 (nn.Conv2d): Third convolutional layer.
+        pool3 (nn.MaxPool2d): Third max pooling layer.
+        flatten_size (int): Size of the flattened output of the final convolutional layer.
+        fc1 (nn.Linear): Fully connected layer.
+        value_stream (nn.Linear): Linear layer for the value stream.
+        advantage_stream (nn.Linear): Linear layer for the advantage stream.
+    """
+    
     def __init__(self, action_dim, image_dim=(480, 640)):
         super(DuelingDDQN, self).__init__()
         # Convolutional and pooling layers
@@ -60,6 +82,15 @@ class DuelingDDQN(nn.Module):
         self.advantage_stream = nn.Linear(512, action_dim)
 
     def _get_conv_output(self, shape):
+        """
+        Compute the size of the flattened output of the final convolutional layer.
+
+        Args:
+            shape (tuple): Shape of the input tensor (channels, height, width).
+
+        Returns:
+            int: Size of the flattened output.
+        """
         with torch.no_grad():
             input = torch.zeros(1, *shape)
             output = self.conv1(input)
@@ -71,6 +102,15 @@ class DuelingDDQN(nn.Module):
             return int(np.prod(output.size()))
 
     def forward(self, state):
+        """
+        Forward pass of the neural network.
+
+        Args:
+            state (torch.Tensor): Input state tensor.
+
+        Returns:
+            torch.Tensor: Predicted Q-values for each action.
+        """
         # Convert state to float and scale if necessary
         state = state.float() / 255.0  # Scale images to [0, 1]
 
@@ -102,20 +142,88 @@ loss_fn = nn.SmoothL1Loss()  # huber loss
 
 
 class ReplayBuffer:
+    """
+    Replay buffer for experience replay in reinforcement learning.
+
+    This buffer stores experiences and provides methods for storing,
+    sampling, and retrieving experiences for training.
+
+    Args:
+        capacity (int): Maximum capacity of the replay buffer.
+
+    Attributes:
+        buffer (deque): Deque containing the stored experiences.
+    """
+    
     def __init__(self, capacity):
+        """
+        Initialize the replay buffer with a given capacity.
+
+        Args:
+            capacity (int): Maximum capacity of the replay buffer.
+        """
         self.buffer = deque(maxlen=capacity)
 
     def store(self, experience):
+        """
+        Store a new experience in the replay buffer.
+
+        Args:
+            experience: The experience to be stored in the buffer.
+        """
         self.buffer.append(experience)
 
     def sample(self, batch_size):
+        """
+        Sample a batch of experiences from the replay buffer.
+
+        Args:
+            batch_size (int): Number of experiences to sample.
+
+        Returns:
+            list: A list containing the sampled experiences.
+        """
         return random.sample(self.buffer, batch_size)
 
     def size(self):
+        """
+        Get the current size of the replay buffer.
+
+        Returns:
+            int: The current number of experiences stored in the buffer.
+        """    
         return len(self.buffer)
 
 
 class HUD:
+    """
+    Heads-Up Display (HUD) for visualizing information on camera images.
+
+    This class manages the HUD elements such as speed, throttle, steer,
+    heading, location, collision, and nearby vehicles, and provides methods
+    for updating and rendering these elements on camera images.
+
+    Args:
+        width (int): Width of the camera image.
+        height (int): Height of the camera image.
+
+    Attributes:
+        dim (tuple): Dimension of the camera image (width, height).
+        font: Font used for rendering text on the HUD.
+        font_scale (float): Scale factor for adjusting font size.
+        font_color (tuple): Color of the text rendered on the HUD.
+        line_height (int): Height of each line of text.
+        x_offset (int): Horizontal offset for positioning HUD elements.
+        y_offset (int): Vertical offset for positioning HUD elements.
+        speed (float): Current speed of the vehicle.
+        throttle (float): Current throttle value.
+        steer (float): Current steering angle.
+        heading (str): Current heading of the vehicle.
+        location (str): Current location of the vehicle.
+        collision (list): List of collision information.
+        nearby_vehicles (list): List of nearby vehicles.
+    """
+    
     def __init__(self, width, height):
         self.dim = (width, height)
         self.font = cv2.FONT_HERSHEY_SIMPLEX
@@ -135,6 +243,18 @@ class HUD:
     def update(
         self, speed, throttle, steer, heading, location, collision, nearby_vehicles
     ):
+        """
+        Update the HUD with new information.
+
+        Args:
+            speed (float): Current speed of the vehicle.
+            throttle (float): Current throttle value.
+            steer (float): Current steering angle.
+            heading (str): Current heading of the vehicle.
+            location (str): Current location of the vehicle.
+            collision (list): List of collision information.
+            nearby_vehicles (list): List of nearby vehicles.
+        """
         self.speed = speed
         self.throttle = throttle
         self.steer = steer
@@ -144,6 +264,15 @@ class HUD:
         self.nearby_vehicles = nearby_vehicles
 
     def tick(self, camera_image):
+        """
+        Render HUD elements on the camera image and return the image.
+
+        Args:
+            camera_image: The camera image on which HUD elements are rendered.
+
+        Returns:
+            np.array: The camera image with HUD elements rendered.
+        """
         # Create a blank HUD image
         hud_image = np.zeros((self.dim[1], self.dim[0], 3), dtype=np.uint8)
 
@@ -239,6 +368,19 @@ class HUD:
 
 
 class Environment:
+    """
+    Class representing the environment for the simulation.
+
+    Args:
+        carla_client: The Carla client instance.
+        car_config: Configuration for the vehicle.
+        sensor_config: Configuration for the sensors.
+        reward_function: The reward function to use.
+        map: The map to load (default is 0).
+        spawn_index: The spawn index for the vehicle.
+        random: Whether to use random spawning.
+    """
+    
     def __init__(
         self,
         carla_client,
@@ -313,9 +455,15 @@ class Environment:
         self.hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
 
     def on_collision(self, event):
+        """
+        Callback function for collision events.
+        """
         self.collision_detected = True
 
     def reset(self):  # reset is to reset world?
+        """
+        Reset the environment.
+        """
         # Spawn or respawn the vehicle at a random location
         # delete what we created, eg. vehicles and sensors
         actor_list = self.world.get_actors()
@@ -380,6 +528,9 @@ class Environment:
         return self.image
 
     def process_image(self, image):
+        """
+        Process the image received from the camera sensor.
+        """
         i = np.array(image.raw_data)
         i2 = i.reshape(
             (self.sensor_config["image_size_y"], self.sensor_config["image_size_x"], 4)
@@ -442,6 +593,12 @@ class Environment:
         ###
 
     def step(self, action):
+        """
+        Take a step in the environment based on the given action.
+
+        Args:
+            action: The action to take.
+        """
         self.throttle, self.steer = action
         #  print(self.action_space)
         self.vehicle.apply_control(
@@ -525,6 +682,10 @@ class Environment:
         - Penalize for exceeding max rotation.
         - Penalize for not being centered on the road.
         - Penalize heavily if the vehicle is going in the opposite direction of the road.
+        
+        Returns:
+            reward (float): The reward value.
+            done (bool): Whether the episode is done.
         """
 
         vehicle_transform = self.vehicle.get_transform()
@@ -609,6 +770,10 @@ class Environment:
     def reward_2(self):
         """
         Reward function that does not account for max rotation exceeded
+        
+        Returns:
+            reward (float): The reward value.
+            done (bool): Whether the episode is done.
         """
 
         exceed_max_rotation = np.abs(vehicle_rotation_radians) > maximal_rotation
@@ -650,6 +815,13 @@ class Environment:
         return reward, done
 
     def reward_3(self):
+        """
+        Reward function with a different formulation.
+        
+        Returns:
+            reward (float): The reward value.
+            done (bool): Whether the episode is done.
+        """
         reward = 0
         done = False
         vehicle_transform = self.vehicle.get_transform()
@@ -693,6 +865,15 @@ class Environment:
         return reward, done
 
     def reward_4(self):
+        """
+        Reward function with additional considerations.
+        
+        Returns:
+            reward (float): The reward value.
+            done (bool): Whether the episode is done.
+            theta (float): Angle difference between vehicle heading and road direction.
+            Py (float): Distance from the center of the lane.
+        """
         reward = 0
         done = False
         vehicle_transform = self.vehicle.get_transform()
@@ -739,12 +920,24 @@ class Environment:
         return reward, done, theta, abs(Py)
 
     def get_vehicle_direction(self):
+        """
+        Get the direction vector of the vehicle based on its yaw angle.
+        
+        Returns:
+            carla.Vector3D: The direction vector of the vehicle.
+        """
         transform = self.vehicle.get_transform()
         rotation = transform.rotation
         radians = math.radians(rotation.yaw)
         return carla.Vector3D(math.cos(radians), math.sin(radians), 0.0)
 
     def get_road_direction(self):
+        """
+        Get the direction vector of the road based on the current waypoint.
+        
+        Returns:
+            carla.Vector3D: The direction vector of the road.
+        """
         # This is a simplified example. You'll need to adapt it based on how your road data is structured
         map = self.world.get_map()
         waypoint = map.get_waypoint(self.vehicle.get_location())
@@ -753,6 +946,16 @@ class Environment:
         return direction.make_unit_vector()
 
     def calculate_angle_between_vectors(self, v1, v2):
+        """
+        Calculate the angle between two vectors.
+        
+        Args:
+            v1 (carla.Vector3D): The first vector.
+            v2 (carla.Vector3D): The second vector.
+        
+        Returns:
+            float: The angle between the two vectors in degrees.
+        """
         dot_product = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
         magnitude_v1 = math.sqrt(v1.x**2 + v1.y**2 + v1.z**2)  # Magnitude of v1
         magnitude_v2 = math.sqrt(v2.x**2 + v2.y**2 + v2.z**2)  # Magnitude of v2
@@ -774,6 +977,12 @@ class Environment:
         return math.degrees(angle)  # Convert the angle to degrees
 
     def get_lateral_position_error_and_lane_width(self):
+        """
+        Calculate the lateral position error and lane width of the vehicle.
+        
+        Returns:
+            tuple: A tuple containing lateral position error (float) and lane width (float).
+        """
         # Get the vehicle's location
         vehicle_location = self.vehicle.get_location()
         map = self.world.get_map()
@@ -796,6 +1005,12 @@ class Environment:
         return lateral_position_error, lane_width
 
     def is_vehicle_within_lane(self):
+        """
+        Check if the vehicle is within the lane boundaries.
+        
+        Returns:
+            bool: True if the vehicle is within the lane, False otherwise.
+        """
         # Get the vehicle's location
         map = self.world.get_map()
         vehicle_location = self.vehicle.get_location()
@@ -834,6 +1049,16 @@ class Environment:
         return is_within_lane
 
     def epsilon_greedy_action(self, state, epsilon):
+        """
+        Perform an epsilon-greedy action selection based on the given state and epsilon value.
+        
+        Args:
+            state (torch.Tensor): The current state representation.
+            epsilon (float): The exploration rate.
+        
+        Returns:
+            int: The selected action index.
+        """
         # print(f"\tstate.shape = {state.shape}")
         state = state.permute(0, 3, 1, 2)
         prob = np.random.uniform()
@@ -852,6 +1077,14 @@ Transition = namedtuple(
 
 
 def optimize_model(memory, batch_size, gamma):
+    """
+    Optimize the Q-network model using a batch of transitions from the replay memory.
+
+    Args:
+        memory (ReplayMemory): The replay memory containing transitions.
+        batch_size (int): The size of the batch to sample from the replay memory.
+        gamma (float): The discount factor for future rewards.
+    """
     # print("__FUNCTION__optimize_model()")
     if memory.size() < batch_size:
         return
@@ -925,6 +1158,16 @@ def optimize_model(memory, batch_size, gamma):
 
 
 def update_plot(rewards, num_steps, lane_deviation, angle, speed):
+    """
+    Update the training plot with new data.
+
+    Args:
+        rewards (list): List of average rewards per episode.
+        num_steps (list): List of number of steps per episode.
+        lane_deviation (list): List of lane deviation values per episode.
+        angle (list): List of angle values per episode.
+        speed (list): List of speed values per episode.
+    """
     # with open('plot')
     # plt.clf()  just adds blank figure
     plt.figure(figsize=(10, 8))

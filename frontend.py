@@ -18,6 +18,13 @@ language_dict = {name: code for code, name in LANGUAGES.items()}
 
 
 def translate_labels(root, dest_language):
+    """
+    Translate labels in the Frontend GUI to the specified destination language.
+
+    Args:
+        root (tk.Tk): The root window of the GUI.
+        dest_language (str): The destination language to translate to.
+    """
     translator = Translator()
     print(dest_language)
     dest_language_code = language_dict[dest_language]
@@ -43,6 +50,10 @@ true_false = ["True", "False"]
 
 
 def show_plot():
+    
+    """
+        Display the plot of rewards versus number of steps, lane deviation, angle, and speed.
+    """
 
     try:
         csv_file = "plot_data.csv"
@@ -82,6 +93,9 @@ def show_plot():
 
 
 def run_backend():
+    """
+    Run the backend script with the provided arguments.
+    """
     run_button.config(state="disabled")
     arg1 = entry1.get()
     arg2 = entry2.get()
@@ -121,6 +135,9 @@ def run_backend():
 
 
 def run_backend_thread():
+    """
+    Run the backend script in a separate thread.
+    """
     backend_thread = threading.Thread(target=run_backend)
     backend_thread.start()
 
