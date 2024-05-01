@@ -24,3 +24,5 @@ py -3.8 frontend.py
 
 - Uncomment the cv2.imshow in the process image function to visualize the actual camera sensor data.
 
+### Preferences
+Currently, we suggest you to use reward function 4 over the other reward functions because it seems to have better performance. Additionally, you could create your own reward functions to use for training.
