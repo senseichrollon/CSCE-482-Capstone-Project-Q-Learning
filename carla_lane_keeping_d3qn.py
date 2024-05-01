@@ -247,7 +247,7 @@ class Environment:
         reward_function,
         map=0,
         spawn_index=None,
-        random=False
+        random=False,
     ):
         # Connecting to Carla Client
         self.client = carla_client
@@ -456,8 +456,6 @@ class Environment:
         dd = np.linalg.norm(current_xy - self.prev_xy)
         self.distance += dd
 
-        
-
         info = {}
 
         # getting info data
@@ -496,15 +494,13 @@ class Environment:
         Py = distance_from_center
 
         velocity = self.vehicle.get_velocity()
-        speed = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
-        speed = speed ** 0.5
+        speed = velocity.x**2 + velocity.y**2 + velocity.z**2
+        speed = speed**0.5
 
         info["angle"] = math.cos(theta)
         info["lane_deviation"] = Py
         info["collision"] = 1 if self.collision_detected else 0
         info["speed"] = speed
-
-
 
         # Calculate reward based on the chosen reward function
         if self.rf == 1:
@@ -535,7 +531,7 @@ class Environment:
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
         print("Vehicle location is", vehicle_location.x, vehicle_location.y)
-   #     print("Vehicle Rotation is", vehicle_rotation)
+        #     print("Vehicle Rotation is", vehicle_rotation)
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
         vehicle_rotation_radians = (vehicle_rotation_radians + np.pi) % (
@@ -551,17 +547,16 @@ class Environment:
         waypoint = map.get_waypoint(
             vehicle_location, project_to_road=True, lane_type=carla.LaneType.Driving
         )
-     #   print("Map is", map)
+        #   print("Map is", map)
         # Calculate the heading difference between the vehicle and the road
         road_direction = waypoint.transform.rotation.yaw
-     #   print("Road Direction is", road_direction)
+        #   print("Road Direction is", road_direction)
         road_direction_radians = math.radians(road_direction)
-     #   print("Road Direction radians is", road_direction_radians)
-     #   print("Vehicle direction radians is",vehicle_rotation_radians)
+        #   print("Road Direction radians is", road_direction_radians)
+        #   print("Vehicle direction radians is",vehicle_rotation_radians)
         heading_difference = abs(vehicle_rotation_radians - road_direction_radians) % (
             2 * np.pi
         )
-
 
         # Heavily penalize if the vehicle is going in the opposite direction (more than 90 degrees away from road direction)
         going_opposite_direction = heading_difference > np.pi / 2
@@ -569,24 +564,24 @@ class Environment:
         road_half_width = waypoint.lane_width / 2.0
         center_of_lane = waypoint.transform.location
         distance_from_center = vehicle_location.distance(center_of_lane)
-   #     print("Distance from center is", distance_from_center)
+        #     print("Distance from center is", distance_from_center)
         out_of_lane = self.is_vehicle_within_lane() is False
-     #   print("Is out of lane?", out_of_lane)
-     #   print("Road half width is", road_half_width)
+        #   print("Is out of lane?", out_of_lane)
+        #   print("Road half width is", road_half_width)
         not_near_center = distance_from_center > road_half_width / 2
-    #    print(not_near_center, math.degrees(heading_difference))
-     #   print("Previous xy is", self.prev_xy)
+        #    print(not_near_center, math.degrees(heading_difference))
+        #   print("Previous xy is", self.prev_xy)
         # Determine if the episode should end
         done = not_near_center or going_opposite_direction or self.collision_detected
 
-      #  print("Are we done?", done)
-      #  print("Heading distance is", heading_difference)
+        #  print("Are we done?", done)
+        #  print("Heading distance is", heading_difference)
         # Compute reward based on conditions
         current_xy = np.array([vehicle_location.x, vehicle_location.y])
         reward = 0
-        
-      #  print("Current xy is", current_xy)
-      #  print("Prev xy is", self.prev_xy)
+
+        #  print("Current xy is", current_xy)
+        #  print("Prev xy is", self.prev_xy)
         if self.collision_detected:
             done = True
             reward = -1000
@@ -603,7 +598,7 @@ class Environment:
                 dd * 50
             )  # Assuming the simulation has a tick rate where this scaling makes sense
 
-     #   print("Reward from ifelif is", reward)
+        #   print("Reward from ifelif is", reward)
 
         reward += (abs(heading_difference)) * -100
 
@@ -739,7 +734,7 @@ class Environment:
             math.sqrt(dd)
             + (math.cos(theta) - abs(Py / Wd) - (2 * i_fail))
             - 2 * abs(self.steer)
-        )   
+        )
 
         return reward, done, theta, abs(Py)
 
@@ -930,8 +925,8 @@ def optimize_model(memory, batch_size, gamma):
 
 
 def update_plot(rewards, num_steps, lane_deviation, angle, speed):
-   # with open('plot')
-    #plt.clf()  just adds blank figure
+    # with open('plot')
+    # plt.clf()  just adds blank figure
     plt.figure(figsize=(10, 8))
 
     # create plots
@@ -953,22 +948,26 @@ def update_plot(rewards, num_steps, lane_deviation, angle, speed):
     y2 = angle
     y3 = speed
     x = len(speed)
-    plt.plot(np.arange(0, x), y1, label='Lane Deviation (distance from center)')
-    plt.plot(np.arange(0, x), y2, label='Angle (radians)')
-    plt.plot(np.arange(0, x), y3, label='Speed (m/s)')
-    plt.xlabel('Training Episodes')
-    plt.ylabel('Lane Deviation, Angle, Speed')
-    plt.title('Lane Deviation, Angle, Speed per Episode')
+    plt.plot(np.arange(0, x), y1, label="Lane Deviation (distance from center)")
+    plt.plot(np.arange(0, x), y2, label="Angle (radians)")
+    plt.plot(np.arange(0, x), y3, label="Speed (m/s)")
+    plt.xlabel("Training Episodes")
+    plt.ylabel("Lane Deviation, Angle, Speed")
+    plt.title("Lane Deviation, Angle, Speed per Episode")
     plt.legend()
 
     plt.subplot(4, 1, 4)
-    plt.scatter(np.arange(0, len(rewards)), rewards, color='blue')
+    plt.scatter(np.arange(0, len(rewards)), rewards, color="blue")
     coeffs = np.polyfit(np.arange(len(rewards)), rewards, 1)
     p = np.poly1d(coeffs)
-    plt.plot(np.arange(len(rewards)), p(np.arange(len(rewards))), 'r--')
+    plt.plot(np.arange(len(rewards)), p(np.arange(len(rewards))), "r--")
     plt.xlabel("Training Episodes")
     plt.ylabel("Average Reward per Episode")
-    plt.title("Average Reward (Corr: {:.2f})".format(np.corrcoef(rewards, p(np.arange(len(rewards))))[0, 1]))
+    plt.title(
+        "Average Reward (Corr: {:.2f})".format(
+            np.corrcoef(rewards, p(np.arange(len(rewards))))[0, 1]
+        )
+    )
 
     # Adjust layout and display the plot
     plt.tight_layout()
@@ -1034,7 +1033,7 @@ if __name__ == "__main__":
         type=str,
         nargs=1,
         help="Vehicle spawn location random? (True/False)",
-        required= False,
+        required=False,
     )
     args = parser.parse_args()
 
@@ -1059,13 +1058,21 @@ if __name__ == "__main__":
     map = 0  # default map
     if args.map:  # specifed map is chosen
         map = args.map[0]
-    
-    random_spawn = True # default random value
-    if args.random_spawn:
-        if(args.random_spawn[0] == "False"):
-            random_spawn= False
 
-    env = Environment(client, car_config, sensor_config, args.reward_function, map, 19, random=random_spawn)
+    random_spawn = True  # default random value
+    if args.random_spawn:
+        if args.random_spawn[0] == "False":
+            random_spawn = False
+
+    env = Environment(
+        client,
+        car_config,
+        sensor_config,
+        args.reward_function,
+        map,
+        19,
+        random=random_spawn,
+    )
 
     # initialize HUD
     hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
@@ -1082,7 +1089,7 @@ if __name__ == "__main__":
 
         replay_buffer = ReplayBuffer(10000)
         batch_size = 64
-        gamma = 0.99    
+        gamma = 0.99
         epsilon_start = 1
         epsilon_end = 0.01
         epsilon_decay = 0.993
@@ -1109,17 +1116,17 @@ if __name__ == "__main__":
         epsilon = epsilon_start
         start_time = time.time()
         # opening file to append data
-        file = open('plot_data.csv', 'w', newline ='')
+        file = open("plot_data.csv", "w", newline="")
         writer = csv.writer(file)
-        file2 = open('step_plot.csv', 'w', newline='')
+        file2 = open("step_plot.csv", "w", newline="")
         writer2 = csv.writer(file2)
         writer2.writerow(["lane_dev_avg", "angle_avg", "speed_avg"])
-        lane_deviations =[]
-        speeds= []
-        angles =[]
+        lane_deviations = []
+        speeds = []
+        angles = []
         for episode in range(num_episodes):
             ep_deviation = []
-            ep_angles= []
+            ep_angles = []
             ep_speed = []
             num_ep = episode
             state = env.reset()
@@ -1139,8 +1146,8 @@ if __name__ == "__main__":
 
                 # Select action using epsilon greedy policy
                 action = env.epsilon_greedy_action(state_tensor, epsilon)
-                next_state, reward, done, info = env.step(action)   #data here
-                # next_state = next_state   
+                next_state, reward, done, info = env.step(action)  # data here
+                # next_state = next_state
                 ep_deviation.append(info["lane_deviation"])
                 ep_angles.append(info["angle"])
                 ep_speed.append(info["speed"])
@@ -1179,24 +1186,21 @@ if __name__ == "__main__":
                 # camera_image_with_hud = hud.tick(camera_image)
                 # cv2.imshow("Camera View with HUD", camera_image_with_hud)
                 # cv2.waitKey(1)
-            #while loop ends
+            # while loop ends
             lane_dev_avg = np.mean(ep_deviation)
-            angle_avg= np.mean(ep_angles)
+            angle_avg = np.mean(ep_angles)
             speed_avg = np.mean(ep_speed)
             lane_deviations.append(lane_dev_avg)
             angles.append(angle_avg)
             speeds.append(speed_avg)
-            
-            #write this data to a file for frontend use
-            
-            
 
+            # write this data to a file for frontend use
 
             rewards = np.append(rewards, total_reward / step)
             num_steps = np.append(num_steps, step)
             data = [float(total_reward) / float(step), float(step)]
-            data2= [lane_dev_avg, angle_avg, speed_avg]
-          #  print("data to be written", data)
+            data2 = [lane_dev_avg, angle_avg, speed_avg]
+            #  print("data to be written", data)
             writer.writerow(data)
             writer2.writerow(data2)
             file.flush()
@@ -1225,7 +1229,7 @@ if __name__ == "__main__":
         file.close()
         file2.close()
 
-        #for loop ends
+        # for loop ends
 
         eps = np.arange(0, num_episodes)
         print(f"rewards = {rewards}")

@@ -3,12 +3,16 @@ import pygame
 import random
 import numpy as np
 
+
 def process_img(image):
     """Process the image from the camera sensor and convert it to a format suitable for Pygame."""
     i = np.array(image.raw_data)  # Convert the raw data to an array
-    i2 = i.reshape((image.height, image.width, 4))  # Reshape it to have the proper dimension
+    i2 = i.reshape(
+        (image.height, image.width, 4)
+    )  # Reshape it to have the proper dimension
     i3 = i2[:, :, :3]  # Drop the alpha channel
     return i3.swapaxes(0, 1)  # Pygame uses width x height, so we need to swap the axes
+
 
 def image_callback(image, surface):
     """Update Pygame surface with camera image."""
@@ -20,6 +24,7 @@ def image_callback(image, surface):
     surface = pygame.surfarray.make_surface(array)
     screen.blit(surface, (0, 0))
 
+
 def main():
     pygame.init()
     display_width = 640
@@ -30,22 +35,22 @@ def main():
     clock = pygame.time.Clock()
 
     try:
-        client = carla.Client('localhost', 2000)
+        client = carla.Client("localhost", 2000)
         client.set_timeout(10.0)
 
         world = client.get_world()
 
         blueprint_library = world.get_blueprint_library()
-        car_model = blueprint_library.filter('model3')[0]
+        car_model = blueprint_library.filter("model3")[0]
 
         spawn_point = random.choice(world.get_map().get_spawn_points())
         vehicle = world.spawn_actor(car_model, spawn_point)
 
         # Attach a camera sensor to the vehicle
-        camera_bp = blueprint_library.find('sensor.camera.rgb')
-        camera_bp.set_attribute('image_size_x', f'{display_width}')
-        camera_bp.set_attribute('image_size_y', f'{display_height}')
-        camera_bp.set_attribute('fov', '110')
+        camera_bp = blueprint_library.find("sensor.camera.rgb")
+        camera_bp.set_attribute("image_size_x", f"{display_width}")
+        camera_bp.set_attribute("image_size_y", f"{display_height}")
+        camera_bp.set_attribute("fov", "110")
         camera_transform = carla.Transform(carla.Location(x=5, z=1))
         camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
 
@@ -84,7 +89,8 @@ def main():
         vehicle.destroy()
         camera.destroy()
         pygame.quit()
-        print('Simulation ended.')
+        print("Simulation ended.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
