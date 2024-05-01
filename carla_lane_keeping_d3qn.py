@@ -299,7 +299,7 @@ class Environment:
         # Action space is now defined in terms of throttle and steer instead of curvature and speed.
         throttle_range = np.linspace(0, 0.5, 5)
         steer_range = np.linspace(-0.25, 0.25, 9)
-        print(steer_range)
+       # print(steer_range)
         self.action_space = np.array(
             np.meshgrid(throttle_range, steer_range)
         ).T.reshape(-1, 2)
@@ -530,7 +530,7 @@ class Environment:
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
         vehicle_rotation = vehicle_transform.rotation.yaw
-        print("Vehicle location is", vehicle_location.x, vehicle_location.y)
+    #    print("Vehicle location is", vehicle_location.x, vehicle_location.y)
         #     print("Vehicle Rotation is", vehicle_rotation)
         # Convert yaw to radians and normalize between -pi and pi
         vehicle_rotation_radians = math.radians(vehicle_rotation)
@@ -627,7 +627,7 @@ class Environment:
         # Determine if the vehicle is out of lane or not near the center
         out_of_lane = self.is_vehicle_within_lane() is False
         not_near_center = distance_from_center > road_half_width / 4
-        print(distance_from_center)
+        #print(distance_from_center)
 
         # Determine if the episode should end
         done = out_of_lane
@@ -728,7 +728,7 @@ class Environment:
 
         Py = distance_from_center
         Wd = waypoint.lane_width / 2.5
-        print(self.steer)
+       # print(self.steer)
         i_fail = 1 if distance_from_center > road_half_width / 2.5 else 0
         reward = (
             math.sqrt(dd)
@@ -1073,6 +1073,17 @@ if __name__ == "__main__":
         19,
         random=random_spawn,
     )
+
+    print("Arguments received:")
+    print("Version:", args.version)
+    print("Operation:", args.operation)
+    print("Save Path:", args.save_path)
+    print("Reward Function:", args.reward_function)
+    print("Map:", args.map)
+    print("Epsilon Decrement:", args.epsilon_decrement)
+    print("Number of Episodes:", args.num_episodes)
+    print("Max Steps per Episode:", args.max_steps)
+    print("Random Vehicle Spawn:", args.random_spawn)
 
     # initialize HUD
     hud = HUD(sensor_config["image_size_x"], sensor_config["image_size_y"])
